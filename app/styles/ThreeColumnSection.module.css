@@ -1,0 +1,20 @@
+/* styles/ThreeColumnSection.module.css */
+.container {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 p-6 max-w-7xl mx-auto py-20;
+}
+
+.column {
+  @apply flex flex-col items-start p-6 rounded-lg;
+}
+
+.title {
+  @apply text-3xl font-bold uppercase mb-4 text-[#2e2e2e];
+}
+
+.body {
+  @apply text-base text-[#2e2e2e] mb-4 text-balance;
+}
+
+.button {
+  @apply inline-block bg-red-500 text-white px-8 py-2 rounded hover:bg-gray-600 text-base;
+}
