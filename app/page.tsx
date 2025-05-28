@@ -1,17 +1,19 @@
+'use client'
 import Link from 'next/link'
-
 import ThreeColumnSection from './components/threeColumn';
+import { usePathname } from 'next/navigation';
 
 export default function Example() {
+  const pathname = usePathname();
   return (
     <div className="">
+
       <div className="mx-auto py-12 sm:px-6 sm:py-20 lg:px-8">
         <div className="relative isolate overflow-hidden px-6 pt-16 justify-betwee sm:rounded-3xl sm:px-16 md:pt-24 lg:flex lg:gap-x-20 lg:px-24 lg:pt-0">
 
           <div className="mx-auto max-w-md text-center lg:mx-0 lg:flex-auto lg:py-32 lg:text-left">
-            <h2 className="text-balance font-light text-7xl uppercase font-semibold tracking-tight text-white sm:text-7xl">
-              Building Discipline
-              & Confidence
+            <h2 className="text-balance font-light text-7xl uppercase font-semibold tracking-tight text-white min-w-[700px] sm:text-7xl">
+              Building Discipline & Confidence
             </h2>
 
 
@@ -22,9 +24,8 @@ export default function Example() {
               >
                 Get started
               </Link>
-              <a href="#" className="text-sm/6 font-semibold text-white hover:text-red-500">
-                Learn More <span aria-hidden="true">→</span>
-              </a>
+
+
             </div>
           </div>
           <div className="relative mt-16 lg:mt-8">
@@ -38,7 +39,7 @@ export default function Example() {
           </div>
         </div>
       </div>
-      <div className="bg-[#f9f7f4]">
+      <div className="bg-gray-100">
         <ThreeColumnSection />
       </div>
     </div>

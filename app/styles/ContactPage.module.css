@@ -1,0 +1,43 @@
+/* styles/ContactPage.module.css */
+.container {
+    @apply flex flex-col items-center mx-auto max-w-xl py-10 ;
+}
+
+.title {
+    @apply text-3xl font-bold mb-4 text-balance text-black;
+}
+
+.intro {
+    @apply mb-6 text-gray-700 text-base text-balance;
+}
+
+.form {
+    @apply w-full space-y-4;
+}
+
+.label {
+    @apply block font-medium mb-1 text-gray-800;
+}
+
+.input {
+    @apply w-full border-2 border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:border-blue-600 text-black;
+}
+
+.inputError {
+    @apply border-red-500; 
+}
+
+.error {
+    @apply text-red-500 text-sm mt-1;
+}
+
+.button {
+    @apply bg-red-500 text-white px-10 py-2 rounded-md hover:bg-gray-500 text-sm;
+}
+
+.textInfo {
+    @apply flex-col self-start py-10 text-black ;
+}
+.h3 {
+    @apply font-bold
+}

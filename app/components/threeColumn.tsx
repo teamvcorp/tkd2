@@ -26,9 +26,9 @@ Our kids classes focus on developing discipline, respect, and physical fitness. 
       </div>
       {/* Column 3 */}
       <div className={styles.column}>
-        <h3 className={styles.title}>Family Classes</h3>
+        <h3 className={styles.title}>Yotae</h3>
         <p className={styles.body}>
-          Familes can train together in our family classes, promoting bonding and shared experiences through martial arts.While keeping each other motivated and accountable.
+          Yotae blends Taekwondo and yoga into one powerful program for all ages and skill levels—whether you're a playful beginner, an energetic kid, or an advanced athlete looking to enhance strength, flexibility, and focus.
         </p>
         <Link href="/contact" className={styles.button}>
           Contact Us

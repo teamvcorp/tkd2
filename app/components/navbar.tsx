@@ -1,97 +1,173 @@
-'use client'
+'use client';
+import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
+import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { PlusIcon } from '@heroicons/react/20/solid'
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import styles from '../styles/Navbar.module.css'
 
-import * as Headless from '@headlessui/react'
-import clsx from 'clsx'
-import { LayoutGroup, motion } from 'framer-motion'
-import React, { forwardRef, useId } from 'react'
-import { TouchTarget } from './button'
-import { Link } from './link'
-import styles from '../styles/navbar.module.css'
+export default function Navbar() {
+    const pathname = usePathname();
+    interface IsActiveFn {
+        (path: string): string;
+    }
 
-export function Navbar({ className, ...props }: React.ComponentPropsWithoutRef<'nav'>) {
-  return <nav {...props} className={clsx(className, `flex flex-1 items-center gap-4 py-2.5 ${styles.navbarItem}`)} />
-}
+    const isActive: IsActiveFn = (path) =>
+        pathname === path
+            ? 'inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-400'
+            : 'inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-white-500';
+    return (
 
-export function NavbarDivider({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
-  return <div aria-hidden="true" {...props} className={clsx(className, 'h-6 w-px bg-zinc-950/10')} />
-}
+        <Disclosure as="nav" className="">
+            <div className="mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex h-16 justify-between min-w-full">
+                    <div className="flex">
+                        <div className="ml-2 mr-2 flex items-center md:hidden">
+                            {/* Mobile menu button */}
+                            <DisclosureButton className="group relative inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                                <span className="absolute -inset-0.5" />
+                                <span className="sr-only">Open main menu</span>
+                                <Bars3Icon aria-hidden="true" className="block size-6 group-data-[open]:hidden" />
+                                <XMarkIcon aria-hidden="true" className="hidden size-6 group-data-[open]:block" />
+                            </DisclosureButton>
+                        </div>
+                        <div className='flex shrink-0 items-center justify-start'>
+                            <Image
+                                alt="Your Company"
+                                src="/tkdlogo.png"
+                                className=" h-14 w-auto"
+                                width={250}
+                                height={100}
+                            />
+                        </div>
 
-export function NavbarSection({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
-  let id = useId()
+                        <div className="hidden md:ml-16 md:flex  md:space-x-8">
+                            {/* Current: "border-indigo-500 text-gray-900", Default: "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" */}
+                            <Link
+                                href="/"
+                                className={`${isActive('/')} border-b-2 hover:border-gray-300 hover:text-gray-700`}
+                                data-active={pathname === '/'}
+                            >
+                                Home
+                            </Link>
+                            <Link
+                                href="/about"
+                                className={`${isActive('/about')} border-b-2 hover:border-gray-300 hover:text-gray-700`}
+                                data-active={pathname === '/about'}
+                            >
+                                About
+                            </Link>
+                            <Link
+                                href="/classes"
+                                className={`${isActive('/classes')} border-b-2 hover:border-gray-300 hover:text-gray-700`}
+                                data-active={pathname === '/classes'}
+                            >
+                                Classes
+                            </Link>
+                            <Link
+                                href="/contact"
+                                className={`${isActive('/contact')} border-b-2 hover:border-gray-300 hover:text-gray-700`}
+                                data-active={pathname === '/contact'}
+                            >
+                                Contact
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="flex items-center">
+                        <div className="shrink-0">
+                            <button
+                                type="button"
+                                className="relative inline-flex items-center gap-x-1.5 rounded-md bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                            >
+                          
+                               Sign Up Today!
+                            </button>
+                        </div>
+                
+                    </div>
+                </div>
+            </div>
 
-  return (
-    <LayoutGroup id={id}>
-      <div {...props} className={clsx(className, 'flex items-center gap-3')} />
-    </LayoutGroup>
-  )
-}
-
-export function NavbarSpacer({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
-  return <div aria-hidden="true" {...props} className={clsx(className, '-ml-4 flex-1')} />
-}
-
-export const NavbarItem = forwardRef(function NavbarItem(
-  {
-    current,
-    className,
-    children,
-    ...props
-  }: { current?: boolean; className?: string; children: React.ReactNode } & (
-    | Omit<Headless.ButtonProps, 'as' | 'className'>
-    | Omit<React.ComponentPropsWithoutRef<typeof Link>, 'className'>
-  ),
-  ref: React.ForwardedRef<HTMLAnchorElement | HTMLButtonElement>
-) {
-  let classes = clsx(
-    // Base
-    'relative flex min-w-0 items-center gap-3 rounded-lg p-2 text-left  sm:text-sm/5',
-    // Leading icon/icon-only
-    '*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:fill-zinc-500 sm:*:data-[slot=icon]:size-5',
-    // Trailing icon (down chevron or similar)
-    '*:not-nth-2:last:data-[slot=icon]:ml-auto *:not-nth-2:last:data-[slot=icon]:size-5 sm:*:not-nth-2:last:data-[slot=icon]:size-4',
-    // Avatar
-    '*:data-[slot=avatar]:-m-0.5 *:data-[slot=avatar]:size-7 *:data-[slot=avatar]:[--avatar-radius:var(--radius-md)] sm:*:data-[slot=avatar]:size-6',
-    // Hover
-    'data-hover:bg-zinc-950/5 data-hover:*:data-[slot=icon]:fill-zinc-950',
-    // Active
-    'data-active:bg-zinc-950/5 data-active:*:data-[slot=icon]:fill-zinc-950',
-    // Dark mode
-    'dark:text-white dark:*:data-[slot=icon]:fill-zinc-400',
-    'dark:data-hover:bg-white/5 dark:data-hover:*:data-[slot=icon]:fill-white',
-    'dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-white'
-  )
-
-  return (
-    <span className={clsx(className, 'relative')}>
-      {current && (
-        <motion.span
-          layoutId="current-indicator"
-          className="absolute inset-x-2 -bottom-2.5 h-0.5 rounded-full bg-zinc-950 dark:bg-white"
-        />
-      )}
-      {'href' in props ? (
-        <Link
-          {...props}
-          className={classes}
-          data-current={current ? 'true' : undefined}
-          ref={ref as React.ForwardedRef<HTMLAnchorElement>}
-        >
-          <TouchTarget>{children}</TouchTarget>
-        </Link>
-      ) : (
-        <Headless.Button
-          {...props}
-          className={clsx('cursor-default', classes)}
-          data-current={current ? 'true' : undefined}
-          ref={ref}
-        >
-          <TouchTarget>{children}</TouchTarget>
-        </Headless.Button>
-      )}
-    </span>
-  )
-})
-
-export function NavbarLabel({ className, ...props }: React.ComponentPropsWithoutRef<'span'>) {
-  return <span {...props} className={clsx(className, 'truncate')} />
+            <DisclosurePanel className="md:hidden">
+                <div className="space-y-1 pb-3 pt-2">
+                    {/* Current: "bg-indigo-50 border-indigo-500 text-indigo-700", Default: "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700" */}
+                    <DisclosureButton
+                        as="a"
+                        href="#"
+                        className="block border-l-4 border-indigo-500 bg-indigo-50 py-2 pl-3 pr-4 text-base font-medium text-indigo-700 sm:pl-5 sm:pr-6"
+                    >
+                        Home
+                    </DisclosureButton>
+                    <DisclosureButton
+                        as="a"
+                        href="#"
+                        className="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700 sm:pl-5 sm:pr-6"
+                    >
+                        Cl
+                    </DisclosureButton>
+                    <DisclosureButton
+                        as="a"
+                        href="#"
+                        className="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700 sm:pl-5 sm:pr-6"
+                    >
+                        Projects
+                    </DisclosureButton>
+                    <DisclosureButton
+                        as="a"
+                        href="#"
+                        className="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700 sm:pl-5 sm:pr-6"
+                    >
+                        Calendar
+                    </DisclosureButton>
+                </div>
+                <div className="border-t border-gray-200 pb-3 pt-4">
+                    <div className="flex items-center px-4 sm:px-6">
+                        <div className="shrink-0">
+                            <img
+                                alt=""
+                                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                                className="size-10 rounded-full"
+                            />
+                        </div>
+                        <div className="ml-3">
+                            <div className="text-base font-medium text-gray-800">Tom Cook</div>
+                            <div className="text-sm font-medium text-gray-500">tom@example.com</div>
+                        </div>
+                        <button
+                            type="button"
+                            className="relative ml-auto shrink-0 rounded-full bg-white p-1 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            <span className="absolute -inset-1.5" />
+                            <span className="sr-only">View notifications</span>
+                            <BellIcon aria-hidden="true" className="size-6" />
+                        </button>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                        <DisclosureButton
+                            as="a"
+                            href="#"
+                            className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 sm:px-6"
+                        >
+                            Your Profile
+                        </DisclosureButton>
+                        <DisclosureButton
+                            as="a"
+                            href="#"
+                            className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 sm:px-6"
+                        >
+                            Settings
+                        </DisclosureButton>
+                        <DisclosureButton
+                            as="a"
+                            href="#"
+                            className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 sm:px-6"
+                        >
+                            Sign out
+                        </DisclosureButton>
+                    </div>
+                </div>
+            </DisclosurePanel>
+        </Disclosure>
+    )
 }

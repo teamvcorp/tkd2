@@ -4,7 +4,7 @@
 }
 
 .column {
-  @apply flex flex-col items-start p-6 rounded-lg;
+  @apply flex flex-col justify-between items-start p-6 rounded-lg;
 }
 
 .title {

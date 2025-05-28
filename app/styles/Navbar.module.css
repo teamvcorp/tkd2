@@ -1,20 +1,17 @@
-/* styles/Navbar.module.css */
-.navbarSection {
-  @apply flex justify-between;
+
+
+.nav {
+  @apply text-2xl text-white;
+ 
 }
-
-.navbarItem {
-@apply text-white text-xl pl-2;
-
-}
-
 /* Optional: Additional custom styles not available in Tailwind */
 .nav:hover {
+  
   color: #8f8b8b; /* Light gray for hover, complementing light theme */
   transition: color 0.2s ease-in-out;
 }
 
-.navbarItem:active {
+.navActive {
     text-decoration: underline;
     text-decoration-color: #d32f2f;
 }
