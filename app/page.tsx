@@ -1,10 +1,8 @@
 'use client'
 import Link from 'next/link'
 import ThreeColumnSection from './components/threeColumn';
-import { usePathname } from 'next/navigation';
 
 export default function Example() {
-  const pathname = usePathname();
   return (
     <div className="">
 

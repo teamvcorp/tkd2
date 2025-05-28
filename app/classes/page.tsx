@@ -8,7 +8,7 @@ const ClassesPage: React.FC = () => {
   <div className="max-w-5xl mx-auto text-center mb-12">
     <h2 className="text-4xl font-bold text-black mb-4">Our Classes</h2>
     <p className="text-lg text-gray-700">
-      Whether you're a beginner or an advanced student, we offer tailored programs to help you grow in skill, confidence, and discipline.
+      Whether you are a beginner or an advanced student, we offer tailored programs to help you grow in skill, confidence, and discipline.
     </p>
   </div>
 
