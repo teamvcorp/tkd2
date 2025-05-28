@@ -7,7 +7,7 @@ export default function ThreeColumnSection() {
     <div className={styles.container}>
       {/* Column 1 */}
       <div className={styles.column}>
-        <h3 className={styles.title}>Kids' Classes</h3>
+        <h3 className={styles.title}>Kids Classes</h3>
         <p className={styles.body}>
 Our kids classes focus on developing discipline, respect, and physical fitness. All in a fun and safe environment. </p>
         <Link href="/classes" className={styles.button}>
@@ -28,7 +28,7 @@ Our kids classes focus on developing discipline, respect, and physical fitness. 
       <div className={styles.column}>
         <h3 className={styles.title}>Yotae</h3>
         <p className={styles.body}>
-          Yotae blends Taekwondo and yoga into one powerful program for all ages and skill levels—whether you're a playful beginner, an energetic kid, or an advanced athlete looking to enhance strength, flexibility, and focus.
+          Yotae blends Taekwondo and yoga into one powerful program for all ages and skill levels—whether you are a playful beginner, an energetic kid, or an advanced athlete looking to enhance strength, flexibility, and focus.
         </p>
         <Link href="/contact" className={styles.button}>
           Contact Us
