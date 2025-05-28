@@ -8,8 +8,8 @@ const AboutPage = () => {
   <div className="max-w-4xl mx-auto text-center">
     <h2 className="text-4xl font-bold text-black mb-4">About Our School</h2>
     <p className="text-lg text-black mb-8">
-      At Storm Lake Taekwondo, we believe martial arts is more than just physical training — it's a pathway to building
-      confidence, respect, and lifelong discipline. Since our founding, we've empowered students of all ages to grow stronger,
+      At Storm Lake Taekwondo, we believe martial arts is more than just physical training — it is a pathway to building
+      confidence, respect, and lifelong discipline. Since our founding, we have empowered students of all ages to grow stronger,
       inside and out. Our experienced instructors are dedicated to providing a safe, inclusive, and motivating environment
     </p>
   </div>
@@ -27,7 +27,7 @@ const AboutPage = () => {
     <div className="bg-white p-6 rounded-lg shadow">
       <h3 className="text-2xl font-semibold mb-2 text-red-600">Our Approach</h3>
       <p>
-        We blend traditional Taekwondo values with modern instruction methods. Whether you're a beginner or a black belt, our
+        We blend traditional Taekwondo values with modern instruction methods. Whether you are a beginner or a black belt, our
         personalized approach ensures progress at every level.
       </p>
     </div>

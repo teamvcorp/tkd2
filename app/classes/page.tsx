@@ -15,7 +15,7 @@ const ClassesPage: React.FC = () => {
   <div className="max-w-6xl mx-auto grid gap-10 md:grid-cols-3">
 
   <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition duration-300">
-      <h3 className="text-2xl font-semibold text-red-600 mb-2">Lil' Kids Classes <br></br> (Ages 3–5)</h3>
+      <h3 className="text-2xl font-semibold text-red-600 mb-2">Little Kids Classes <br></br> (Ages 3–5)</h3>
       <p className="text-gray-700 mb-4">
         Focused on building discipline, respect, and basic martial arts skills in a fun and structured environment.
       </p>
