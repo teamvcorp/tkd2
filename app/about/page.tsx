@@ -10,7 +10,7 @@ const AboutPage = () => {
     <p className="text-lg text-black mb-8">
       At Storm Lake Taekwondo, we believe martial arts is more than just physical training — it's a pathway to building
       confidence, respect, and lifelong discipline. Since our founding, we've empowered students of all ages to grow stronger,
-      inside and out.
+      inside and out. Our experienced instructors are dedicated to providing a safe, inclusive, and motivating environment
     </p>
   </div>
 
