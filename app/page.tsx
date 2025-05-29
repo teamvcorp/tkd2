@@ -17,7 +17,7 @@ export default function Example() {
 
             <div className="mt-10 flex items-center justify-center gap-x-6 lg:justify-start">
               <Link
-                href="#"
+                href="/plans"
                 className="rounded-md px-20 py-4 text-sm uppercase font-semibold text-white bg-red-500 hover:bg-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 Get started
