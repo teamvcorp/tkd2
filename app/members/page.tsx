@@ -3,7 +3,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 
 
-const CORRECT_PASSWORD = 'yourPassword123'; // Change this to your desired password
 
 export default function MembersPage() {
     const [input, setInput] = useState('');
@@ -23,16 +22,17 @@ export default function MembersPage() {
         red: '/study/red.png',
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (input === CORRECT_PASSWORD) {
-            setAuthorized(true);
-            setError('');
-        } else {
-            setError('Incorrect password.');
-        }
-    };
-
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  const response = await fetch('/api/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: input }),
+  });
+  const { authorized, error } = await response.json();
+  setAuthorized(authorized);
+  setError(error || 'Incorrect password, please try again.');
+};
     if (!authorized) {
         return (
             <div style={{ maxWidth: 400, margin: '100px auto', textAlign: 'center' }}>
