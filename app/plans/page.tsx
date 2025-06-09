@@ -80,113 +80,109 @@ const tabs = [
 ]
 
 export default function Example() {
-    const [isModelOpen, setIsModelOpen] = useState(false)
- 
-const [modalUrl, setModalUrl] = useState<string | null>(null);
+  const [isModelOpen, setIsModelOpen] = useState(false);
+  const [modalUrl, setModalUrl] = useState<string | null>(null);
 
-
-
-
-        function Modal() {
-            if (!isModelOpen) return null;
-            return (
-            <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="relative bg-white rounded w-1/2 max-w-2xl mx-auto p-6 z-40">
-                    <div className="mt-4">
-                        <button
-                            onClick={() => setIsModelOpen(prev => !prev)}
-                            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                        >
-                            Close
-                        </button>
-                        {modalUrl && (
-                            <iframe
-                                src={modalUrl}
-                                title="Sign Up"
-                                className="w-full h-96 mt-4 rounded border"
-                            />
-                        )}
-                    </div>
-                </div>
-            </div>
-            );
-        }
- 
+  function Modal() {
+    if (!isModelOpen) return null;
     return (
-        <div className="bg-white">
-          {isModelOpen && <Modal />}
-            <section aria-labelledby="features-heading" className="mx-auto max-w-7xl py-32 sm:px-2 lg:px-8">
-                <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-0">
-                    <div className="max-w-3xl">
-                        <h2 id="features-heading" className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-                            Membership Plans
-                        </h2>
-                        <p className="mt-4 text-gray-500">
-                            Please explore our plans below they are organized by the class types we offer. Each class type has its own unique features and benefits, allowing you to choose the one that best fits your needs.
-                        </p>
-                    </div>
-
-                    <TabGroup className="mt-4">
-                        <div className="-mx-4 flex overflow-x-auto sm:mx-0">
-                            <div className="flex-auto border-b border-gray-200 px-4 sm:px-0">
-                                <TabList className="-mb-px flex space-x-10">
-                                    {tabs.map((tab) => (
-                                        <Tab
-                                            key={tab.name}
-                                            className="whitespace-nowrap border-b-2 border-transparent py-6 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700 data-[selected]:border-indigo-500 data-[selected]:text-indigo-600"
-                                        >
-                                            {tab.name}
-                                        </Tab>
-                                    ))}
-                                </TabList>
-                            </div>
-                        </div>
-
-                        <TabPanels as={Fragment}>
-                            {tabs.map((tab) => (
-                                <TabPanel key={tab.name} className="space-y-16 pt-10 lg:pt-16">
-                                    {tab.features.map((feature) => (
-                                        <div key={feature.name} className="flex flex-col-reverse lg:grid lg:grid-cols-12 lg:gap-x-8">
-                                            <div className="mt-6 lg:col-span-5 lg:mt-0">
-                                                <h3 className="text-lg font-medium text-gray-900">{feature.name}</h3>
-                                                <p className="mt-2 text-sm text-gray-500">{feature.description}</p>
-                                            </div>
-
-                                            <div className="lg:col-span-7">
-                                                <Image
-                                                    alt={feature.imageAlt}
-                                                    src={feature.imageSrc}
-                                                    className="aspect-[2/1] w-full rounded-lg bg-gray-100 object-cover sm:aspect-[5/2]"
-                                                    width={500}
-                                                    height={300}
-                                                    unoptimized
-                                                />
-                                            </div>
-                                            <div className="mb-4 flex flex-wrap gap-4 lg:col-span-5">
-                                                <div className="w-full mb-2 text-sm text-gray-700">
-                                                    Please select the number of times per week you wish to attend from the options below. You will be redirected to our sign up screen.
-                                                </div>
-                                                {feature.links.map((link) => (
-                                                    <button
-                                                        key={link.name}
-                                                        onClick={() => {
-                                                            setIsModelOpen(true);
-                                                            setModalUrl(link.href);
-                                                        }}
-                                                        className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 transition"
-                                                    >
-                                                        {link.name}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </TabPanel>
-                            ))}
-                        </TabPanels>
-                    </TabGroup>
-                </div>
-            </section>
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="relative bg-white rounded w-11/12 sm:w-3/4 md:w-1/2 max-w-2xl mx-auto p-4 sm:p-6">
+          <button
+            onClick={() => setIsModelOpen(false)}
+            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            Close
+          </button>
+          {modalUrl && (
+            <iframe
+              src={modalUrl}
+              title="Sign Up"
+              className="w-full h-96 mt-4 rounded border"
+              style={{ minHeight: '400px' }} // Ensure minimum height for usability
+              loading="lazy" // Improve performance
+              sandbox="allow-same-origin allow-forms allow-scripts" // Security
+            />
+          )}
         </div>
-    )
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white">
+      <Modal />
+      <section aria-labelledby="features-heading" className="mx-auto max-w-7xl py-32 sm:px-2 lg:px-8">
+        <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-0">
+          <div className="max-w-3xl">
+            <h2 id="features-heading" className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              Membership Plans
+            </h2>
+            <p className="mt-4 text-gray-500">
+              Please explore our plans below they are organized by the class types we offer. Each class type has its own unique features and benefits, allowing you to choose the one that best fits your needs.
+            </p>
+          </div>
+
+          <TabGroup className="mt-4">
+            <div className="-mx-4 flex overflow-x-auto sm:mx-0">
+              <div className="flex-auto border-b border-gray-200 px-4 sm:px-0">
+                <TabList className="-mb-px flex space-x-10">
+                  {tabs.map((tab) => (
+                    <Tab
+                      key={tab.name}
+                      className="whitespace-nowrap border-b-2 border-transparent py-6 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700 data-[selected]:border-indigo-500 data-[selected]:text-indigo-600"
+                    >
+                      {tab.name}
+                    </Tab>
+                  ))}
+                </TabList>
+              </div>
+            </div>
+
+            <TabPanels as={Fragment}>
+              {tabs.map((tab) => (
+                <TabPanel key={tab.name} className="space-y-16 pt-10 lg:pt-16">
+                  {tab.features.map((feature) => (
+                    <div key={feature.name} className="flex flex-col-reverse lg:grid lg:grid-cols-12 lg:gap-x-8">
+                      <div className="mt-6 lg:col-span-5 lg:mt-0">
+                        <h3 className="text-lg font-medium text-gray-900">{feature.name}</h3>
+                        <p className="mt-2 text-sm text-gray-500">{feature.description}</p>
+                      </div>
+                      <div className="lg:col-span-7">
+                        <Image
+                          alt={feature.imageAlt}
+                          src={feature.imageSrc}
+                          className="aspect-[2/1] w-full rounded-lg bg-gray-100 object-cover sm:aspect-[5/2]"
+                          width={500}
+                          height={300}
+                          unoptimized
+                        />
+                      </div>
+                      <div className="mb-4 flex flex-wrap gap-4 lg:col-span-5">
+                        <div className="w-full mb-2 text-sm text-gray-700">
+                          Please select the number of times per week you wish to attend from the options below. You will be redirected to our sign up screen.
+                        </div>
+                        {feature.links.map((link) => (
+                          <button
+                            key={link.name}
+                            onClick={() => {
+                              setIsModelOpen(true);
+                              setModalUrl(link.href);
+                            }}
+                            className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 transition"
+                          >
+                            {link.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </TabPanel>
+              ))}
+            </TabPanels>
+          </TabGroup>
+        </div>
+      </section>
+    </div>
+  );
 }
