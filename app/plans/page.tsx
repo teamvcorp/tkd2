@@ -1,6 +1,11 @@
+'use client';
 import { Fragment } from 'react'
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
-import Link from 'next/link'
+
+import Image from 'next/image'
+import { useState } from 'react'
+
+
 
 const tabs = [
     {
@@ -75,8 +80,41 @@ const tabs = [
 ]
 
 export default function Example() {
+    const [isModelOpen, setIsModelOpen] = useState(false)
+ 
+const [modalUrl, setModalUrl] = useState<string | null>(null);
+
+
+
+
+        function Modal() {
+            if (!isModelOpen) return null;
+            return (
+            <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
+                <div className="relative bg-white rounded w-1/2 max-w-2xl mx-auto p-6 z-40">
+                    <div className="mt-4">
+                        <button
+                            onClick={() => setIsModelOpen(prev => !prev)}
+                            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                        >
+                            Close
+                        </button>
+                        {modalUrl && (
+                            <iframe
+                                src={modalUrl}
+                                title="Sign Up"
+                                className="w-full h-96 mt-4 rounded border"
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+            );
+        }
+ 
     return (
         <div className="bg-white">
+          {isModelOpen && <Modal />}
             <section aria-labelledby="features-heading" className="mx-auto max-w-7xl py-32 sm:px-2 lg:px-8">
                 <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-0">
                     <div className="max-w-3xl">
@@ -115,10 +153,13 @@ export default function Example() {
                                             </div>
 
                                             <div className="lg:col-span-7">
-                                                <img
+                                                <Image
                                                     alt={feature.imageAlt}
                                                     src={feature.imageSrc}
                                                     className="aspect-[2/1] w-full rounded-lg bg-gray-100 object-cover sm:aspect-[5/2]"
+                                                    width={500}
+                                                    height={300}
+                                                    unoptimized
                                                 />
                                             </div>
                                             <div className="mb-4 flex flex-wrap gap-4 lg:col-span-5">
@@ -126,15 +167,16 @@ export default function Example() {
                                                     Please select the number of times per week you wish to attend from the options below. You will be redirected to our sign up screen.
                                                 </div>
                                                 {feature.links.map((link) => (
-                                                    <Link
+                                                    <button
                                                         key={link.name}
-                                                        href={link.href}
-                                                        target='_blank'
-                                                        rel="noopener noreferrer"
+                                                        onClick={() => {
+                                                            setIsModelOpen(true);
+                                                            setModalUrl(link.href);
+                                                        }}
                                                         className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 transition"
                                                     >
                                                         {link.name}
-                                                    </Link>
+                                                    </button>
                                                 ))}
                                             </div>
                                         </div>
