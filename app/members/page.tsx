@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 
 
@@ -9,6 +10,7 @@ export default function MembersPage() {
     const [authorized, setAuthorized] = useState(false);
     const [error, setError] = useState('');
     const [selectedColor, setSelectedColor] = useState('white');
+    const [showPurchase, setShowPurchase] = useState(false);
 
     const colorIframes: Record<string, string> = {
         white: '/study/white.png',
@@ -49,7 +51,27 @@ const handleSubmit = async (e: React.FormEvent) => {
                         Submit
                     </button>
                 </form>
-                {error && <div style={{ color: 'red', marginTop: 8 }}>{error}</div>}
+            <button
+                type="button"
+                className="block w-full rounded-md bg-green-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                onClick={() => setShowPurchase(prev => !prev)}
+            >
+                {showPurchase ? 'Hide Purchase Option' : 'Purchase Site Password'}
+            </button>
+                {/* Show purchase iframe if showPurchase is true */}
+                {showPurchase && (
+                    <div className="flex justify-center w-full my-4">
+                        <iframe
+                            src="https://gckn66p.pushpress.com/open/purchase/prd_79b0e7bc74427c"
+                            title="Purchase Site Password"
+                            allowFullScreen
+                            className="w-full h-[500px] rounded-lg border border-gray-300"
+                        />
+                    </div>
+                )}
+                {error && (
+                    <div className="text-red-600 mt-2">{error}</div>
+                )}
             </div>
         );
     }
