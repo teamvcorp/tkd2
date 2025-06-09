@@ -9,7 +9,7 @@ export default function MembersPage() {
     const [input, setInput] = useState('');
     const [authorized, setAuthorized] = useState(false);
     const [error, setError] = useState('');
-    const [selectedColor, setSelectedColor] = useState('red');
+    const [selectedColor, setSelectedColor] = useState('white');
 
     const colorIframes: Record<string, string> = {
         white: '/study/white.png',
