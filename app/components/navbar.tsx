@@ -70,6 +70,13 @@ export default function Navbar() {
                             >
                                 Contact
                             </Link>
+                            <Link
+                                href="/members"
+                                className={`${isActive('/members')} border-b-2 hover:border-gray-300 hover:text-gray-700`}
+                                data-active={pathname === '/members'}
+                            >
+                                Member
+                            </Link>
                         </div>
                     </div>
                     <div className="flex items-center">

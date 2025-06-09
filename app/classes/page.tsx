@@ -32,7 +32,7 @@ const ClassesPage: React.FC = () => {
       </p>
       <div className="text-sm text-gray-800">
         <p><strong>Mon, Wed & Fri:</strong> 5:30–6:30 PM</p>
-        <p><strong>Sat:</strong> 10:00 AM - 2 PM (Optional)</p>
+        <p><strong>Sat:</strong> 10:00 AM - 2 PM (by invite)</p>
       </div>
     </div>
 
@@ -44,7 +44,7 @@ const ClassesPage: React.FC = () => {
       </p>
       <div className="text-sm text-gray-800">
         <p><strong>Mon, Wed & Fri:</strong> 6:30 – 7:30 PM</p>
-        <p><strong>Sat:</strong> 10:00 AM – 2 PM (Optional) </p>
+        <p><strong>Sat:</strong> 10:00 AM – 2 PM (by invite) </p>
       </div>
     </div>
 
