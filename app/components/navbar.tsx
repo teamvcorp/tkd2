@@ -30,15 +30,15 @@ export default function Navbar() {
                                 <XMarkIcon aria-hidden="true" className="hidden size-6 group-data-[open]:block" />
                             </DisclosureButton>
                         </div>
-                        <div className='flex shrink-0 items-center justify-start'>
+                        <Link href="/" className="flex shrink-0 items-center justify-start">
                             <Image
                                 alt="Your Company"
                                 src="/tkdlogo.png"
-                                className=" h-14 w-auto"
+                                className="h-14 w-auto"
                                 width={250}
                                 height={100}
                             />
-                        </div>
+                        </Link>
 
                         <div className="hidden md:ml-16 md:flex  md:space-x-8">
                             {/* Current: "border-indigo-500 text-gray-900", Default: "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" */}
