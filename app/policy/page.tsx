@@ -29,82 +29,86 @@ export default function PolicyPage() {
     };
 
     return (
-        <div className="p-8 bg-white text-black min-h-screen">
-            <h1 className="text-3xl font-bold mb-6">Policies</h1>
-            <ul>
+        <div className="min-h-screen flex items-center justify-center">
+            <div className="p-8 bg-white text-black rounded-lg shadow-md flex flex-col items-center justify-center max-w-3xl mx-auto max-h-3xl overflow-y-auto">
+            <div className="flex flex-1 items-center justify-center w-full h-full">
+                <ul className="space-y-3 w-full max-w-md">
                 {policies.map((policy) => (
-                    <li key={policy.key} className="mb-2">
-                        <button
-                            className="text-blue-600 underline bg-transparent border-none cursor-pointer p-0"
-                            onClick={() => handleOpen(policy.key)}
-                        >
-                            {policy.name}
-                        </button>
+                    <li key={policy.key}>
+                    <button
+                        className="w-full flex items-center justify-between px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        onClick={() => handleOpen(policy.key)}
+                    >
+                        {policy.name}
+                        <span className="ml-2 text-lg">&rarr;</span>
+                    </button>
                     </li>
                 ))}
-            </ul>
+                </ul>
+            </div>
 
             {/* Simple modal implementation */}
             {open && selectedPolicy === "refund" && (
+            <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                onClick={handleClose}
+            >
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                    onClick={handleClose}
+                className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] w-[90vw] h-[50vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
                 >
-                    <div
-                        className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] max-h-[90vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={handleClose}
-                            className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
-                            aria-label="Close"
-                        >
-                            &times;
-                        </button>
-                        <Refund />
-                    </div>
+                <button
+                onClick={handleClose}
+                className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
+                aria-label="Close"
+                >
+                &times;
+                </button>
+                <Refund />
                 </div>
+            </div>
             )}
             {open && selectedPolicy === "privacy" && (
+            <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                onClick={handleClose}
+            >
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                    onClick={handleClose}
+                className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] w-[90vw] h-[50vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
                 >
-                    <div
-                        className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] max-h-[90vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={handleClose}
-                            className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
-                            aria-label="Close"
-                        >
-                            &times;
-                        </button>
-                        <Privacy />
-                    </div>
+                <button
+                onClick={handleClose}
+                className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
+                aria-label="Close"
+                >
+                &times;
+                </button>
+                <Privacy />
                 </div>
+            </div>
             )}
             {open && selectedPolicy === "terms" && (
+            <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                onClick={handleClose}
+            >
                 <div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                    onClick={handleClose}
+                className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] w-[90vw] h-[50vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
                 >
-                    <div
-                        className="relative bg-white text-black p-6 rounded-lg min-w-[300px] max-w-[90vw] max-h-[90vh] overflow-y-auto"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={handleClose}
-                            className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
-                            aria-label="Close"
-                        >
-                            &times;
-                        </button>
-                        <Terms />
-                    </div>
+                <button
+                onClick={handleClose}
+                className="absolute top-2 right-2 bg-transparent border-none text-2xl cursor-pointer"
+                aria-label="Close"
+                >
+                &times;
+                </button>
+                <Terms />
                 </div>
+            </div>
             )}
+            </div>
         </div>
     );
 }

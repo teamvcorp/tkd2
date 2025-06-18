@@ -18,9 +18,9 @@ export default function MembersPage() {
         green: '/study/green.png',
         purple: '/study/purple.png',
         lightBlue: '/study/lightBlue.png',
-        darkBlue: '/study/darkBlue.png',
-        brown: '/study/brown.png',
-        red: '/study/red.png',
+        darkBlue: '/study/darkBlueBelt24.jpg',
+        brown: '/study/brownBelt24.jpg',
+        red: '/study/redBelt24.jpg',
     };
 
 const handleSubmit = async (e: React.FormEvent) => {
