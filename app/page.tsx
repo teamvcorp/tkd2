@@ -30,7 +30,7 @@ export default function Example() {
           <div className="relative mt-16 lg:mt-8">
             <Image
               alt="tkd girl"
-              src="/tkdgirl.png"
+              src="/group.png"
               width={1000}
               height={500}
               className=" w-full h-full max-w-none "
