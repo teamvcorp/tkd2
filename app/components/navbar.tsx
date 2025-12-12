@@ -23,7 +23,7 @@ export default function Navbar() {
         if (!isModelOpen) return null;
         return (
             <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="relative bg-white rounded w-11/12 sm:w-3/4 md:w-1/2 max-w-2xl mx-auto p-4 sm:p-6">
+                <div className="relative bg-white rounded w-4/5 mx-auto p-4 sm:p-6">
                     <button
                         onClick={() => setIsModelOpen(false)}
                         className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -34,8 +34,8 @@ export default function Navbar() {
                         <iframe
                             src={modalUrl}
                             title="Current Promo"
-                            className="w-full h-96 mt-4 rounded border"
-                            style={{ minHeight: '400px' }}
+                            className="w-full mt-4 rounded border"
+                            style={{ height: '80vh' }}
                             loading="lazy"
                             sandbox="allow-same-origin allow-forms allow-scripts"
                         />
