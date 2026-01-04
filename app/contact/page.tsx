@@ -139,7 +139,7 @@ const ContactPage = () => {
                 <h3 className={styles.h3}> Address</h3>
 <p>503 Lake Avenue Storm Lake, IA 50588</p>
                 <h3 className={styles.h3}> Phone</h3>
-<p>(712) 299-7124</p>
+<p>(712) 638-5050</p>
                 <h3 className={styles.h3}> Email</h3>
 <p>admin@thevacorp.com</p>
 
