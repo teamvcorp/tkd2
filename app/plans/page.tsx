@@ -86,8 +86,8 @@ export default function Example() {
   function Modal() {
     if (!isModelOpen) return null;
     return (
-      <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
-        <div className="relative bg-white rounded w-11/12 sm:w-3/4 md:w-1/2 max-w-2xl mx-auto p-4 sm:p-6">
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40 p-4">
+        <div className="relative bg-white rounded w-full max-w-4xl mx-auto p-4 sm:p-6 max-h-[95vh] overflow-y-auto">
           <button
             onClick={() => setIsModelOpen(false)}
             className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -98,10 +98,9 @@ export default function Example() {
             <iframe
               src={modalUrl}
               title="Sign Up"
-              className="w-full h-96 mt-4 rounded border"
-              style={{ minHeight: '400px' }} // Ensure minimum height for usability
-              loading="lazy" // Improve performance
-              sandbox="allow-same-origin allow-forms allow-scripts" // Security
+              className="w-full h-[700px] mt-4 rounded border"
+              loading="lazy"
+              sandbox="allow-same-origin allow-forms allow-scripts"
             />
           )}
         </div>
