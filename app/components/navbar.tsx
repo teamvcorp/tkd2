@@ -63,7 +63,7 @@ export default function Navbar() {
                         </div>
                         <Link href="/" className="flex shrink-0 items-center justify-start">
                             <Image
-                                alt="Your Company"
+                                alt="Taekwondo of Storm Lake"
                                 src="/tkdlogo.png"
                                 className="h-14 w-auto"
                                 width={250}
@@ -115,7 +115,7 @@ export default function Navbar() {
                             <button
                                 onClick={() => {
                                     setIsModelOpen(true);
-                                    setModalUrl('https://gckn66p.pushpress.com/open/purchase/prd_8be88af9c2a051');
+                                    setModalUrl('https://gckn66p.pushpress.com/landing/plans/plan_b8f5d2be550844');
                                 }}
                                 className="relative inline-flex items-center gap-x-1.5 rounded-md bg-green-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
                             >
