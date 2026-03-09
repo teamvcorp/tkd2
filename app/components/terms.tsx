@@ -91,7 +91,7 @@ export default function Terms() {
                     <div>503 Lake Ave N</div>
                     <div>Storm Lake, Iowa 50588</div>
                     <div>Email: <a href="mailto:admin@thevacorp.com" className="text-blue-600 underline">admin@thevacorp.com</a></div>
-                    <div>Phone: <a href="tel:7122997124" className="text-blue-600 underline">712-299-7124</a></div>
+                    <div>Phone: <a href="tel:7125601128" className="text-blue-600 underline">(712) 560-1128</a></div>
                 </address>
             </section>
         </main>

@@ -110,7 +110,7 @@ const PrivacyPolicy: React.FC = () => (
             <strong className="text-blue-700">The Von Der Becke Academy Corp</strong><br />
             <span>503 Lak Ave N</span>
             <span>Email:<span className="text-blue-700">admin@thevacorp.com</span></span><br />
-            <span>Phone:<span className="text-blue-700">712-299-7124</span></span>
+            <span>Phone:<span className="text-blue-700">(712) 560-1128</span></span>
         </address>
     </main>
 );

@@ -50,7 +50,7 @@ export default function RefundPolicy() {
                         503 Lake Ave N<br />
                         Storm Lake, Iowa 50588<br />
                         Email: <a href="mailto:admin@thevacorp.com" className="text-blue-600 underline">admin@thevacorp.com</a><br />
-                        Phone: <a href="tel:7122997124" className="text-blue-600 underline">712-299-7124</a>
+                        Phone: <a href="tel:7125601128" className="text-blue-600 underline">(712) 560-1128</a>
                     </address>
                 </section>
             </div>
