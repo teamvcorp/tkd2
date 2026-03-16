@@ -40,7 +40,12 @@ export async function getProducts(): Promise<ShopProduct[]> {
   try {
     const { blobs } = await list({ prefix: PRODUCTS_BLOB_KEY });
     if (blobs.length === 0) return [];
-    const res = await fetch(blobs[0].url, {
+    // Sort descending so we always read the most recently written version
+    const latest = blobs.sort(
+      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+    )[0];
+    const res = await fetch(latest.url, {
+      cache: 'no-store',
       headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
     });
     if (!res.ok) return [];

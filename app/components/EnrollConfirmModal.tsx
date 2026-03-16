@@ -1,16 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import type { Stripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { formatPrice } from '@/lib/programs';
 
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null;
-
 interface Props {
+  stripePromise: Promise<Stripe | null> | null;
   clientSecret: string;
   kidName: string;
   programName: string;
@@ -25,7 +22,7 @@ function EnrollForm({
   amount,
   onSuccess,
   onClose,
-}: Omit<Props, 'clientSecret'>) {
+}: Omit<Props, 'clientSecret' | 'stripePromise'>) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState('');
@@ -100,6 +97,7 @@ function EnrollForm({
 }
 
 export default function EnrollConfirmModal({
+  stripePromise,
   clientSecret,
   kidName,
   programName,

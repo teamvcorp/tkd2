@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { auth } from '@/auth';
-import { stripe } from '@/lib/stripe';
+import { stripe, assertStripeKey } from '@/lib/stripe';
 import { getUserByUsername } from '@/lib/userStore';
 import { getProgramById } from '@/lib/programs';
 
@@ -11,6 +12,7 @@ import { getProgramById } from '@/lib/programs';
  */
 export async function POST(request: Request) {
   try {
+    assertStripeKey();
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -60,6 +62,13 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error('enroll error:', err);
-    return NextResponse.json({ error: 'Enrollment failed' }, { status: 500 });
+    // Surface Stripe's own message so it shows up in Vercel logs clearly
+    const message =
+      err instanceof Stripe.errors.StripeError
+        ? err.message
+        : err instanceof Error
+        ? err.message
+        : 'Enrollment failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

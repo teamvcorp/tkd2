@@ -848,6 +848,7 @@ function FamilyDashboard({
 
         {enrollModal && (
           <EnrollConfirmModal
+            stripePromise={stripePromise}
             clientSecret={enrollModal.clientSecret}
             kidName={enrollModal.kidName}
             programName={enrollModal.programName}
