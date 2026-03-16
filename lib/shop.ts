@@ -7,9 +7,10 @@ import { unstable_noStore as noStore } from 'next/cache';
 
 const PRODUCTS_BLOB_KEY = 'shop-config/products.json';
 
-export type ShopCategory = 'Uniforms' | 'Sparring Gear' | 'Training Gear' | 'Extras';
+export type ShopCategory = 'Programs' |'Uniforms' | 'Sparring Gear' | 'Training Gear' | 'Extras';
 
 export const SHOP_CATEGORIES: ShopCategory[] = [
+  'Programs',
   'Uniforms',
   'Sparring Gear',
   'Training Gear',

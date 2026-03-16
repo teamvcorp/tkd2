@@ -103,8 +103,10 @@ export default function ProShop({ hasPaymentMethod }: { hasPaymentMethod: boolea
 
             {pendingPurchase.fulfillment === 'ship' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
+                <label htmlFor="shipping-address" className="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
                 <AddressAutocomplete
+                  id="shipping-address"
+                  name="shipping-address"
                   placeholder="123 Main St, Storm Lake, IA 50588"
                   value={pendingPurchase.shippingAddress}
                   onChange={(v) =>

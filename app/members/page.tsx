@@ -72,6 +72,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             </label>
             <input
               id="login-username"
+              name="username"
               type="text"
               autoComplete="username"
               required
@@ -87,6 +88,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             </label>
             <input
               id="login-password"
+              name="password"
               type="password"
               autoComplete="current-password"
               required
@@ -236,20 +238,20 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           <form onSubmit={handleStep1} className="space-y-4">
             <div>
               <label htmlFor="reg-username" className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input id="reg-username" type="text" autoComplete="username" required minLength={3}
+              <input id="reg-username" name="username" type="text" autoComplete="username" required minLength={3}
                 pattern="[a-zA-Z0-9_]+" title="Letters, numbers and underscores only"
                 value={username} onChange={(e) => setUsername(e.target.value)}
                 placeholder="your_username" className={inputCls} />
             </div>
             <div>
               <label htmlFor="reg-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input id="reg-password" type="password" autoComplete="new-password" required minLength={8}
+              <input id="reg-password" name="password" type="password" autoComplete="new-password" required minLength={8}
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 8 characters" className={inputCls} />
             </div>
             <div>
               <label htmlFor="reg-confirm" className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-              <input id="reg-confirm" type="password" autoComplete="new-password" required
+              <input id="reg-confirm" name="confirm-password" type="password" autoComplete="new-password" required
                 value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter password" className={inputCls} />
             </div>
@@ -263,13 +265,13 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           <form onSubmit={handleStep2} className="space-y-4">
             <div>
               <label htmlFor="parent-name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input id="parent-name" type="text" required
+              <input id="parent-name" name="parent-name" type="text" autoComplete="name" required
                 value={parentName} onChange={(e) => setParentName(e.target.value)}
                 placeholder="Jane Smith" className={inputCls} />
             </div>
             <div>
               <label htmlFor="parent-age" className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-              <input id="parent-age" type="number" required min={18} max={120}
+              <input id="parent-age" name="parent-age" type="number" required min={18} max={120}
                 value={parentAge} onChange={(e) => setParentAge(e.target.value)}
                 placeholder="35" className={inputCls} />
             </div>
@@ -311,27 +313,27 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
-                      <input type="text" required value={kid.name}
+                      <label htmlFor={`kid-${idx}-name`} className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                      <input id={`kid-${idx}-name`} name={`kid-${idx}-name`} type="text" required value={kid.name}
                         onChange={(e) => updateKid(idx, 'name', e.target.value)}
                         placeholder="Alex" className={inputCls} />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Age</label>
-                      <input type="number" required min={3} max={99} value={kid.age}
+                      <label htmlFor={`kid-${idx}-age`} className="block text-xs font-medium text-gray-600 mb-1">Age</label>
+                      <input id={`kid-${idx}-age`} name={`kid-${idx}-age`} type="number" required min={3} max={99} value={kid.age}
                         onChange={(e) => updateKid(idx, 'age', e.target.value)}
                         placeholder="10" className={inputCls} />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Current Belt Rank</label>
-                    <select value={kid.rank} onChange={(e) => updateKid(idx, 'rank', e.target.value)} className={inputCls}>
+                    <label htmlFor={`kid-${idx}-rank`} className="block text-xs font-medium text-gray-600 mb-1">Current Belt Rank</label>
+                    <select id={`kid-${idx}-rank`} name={`kid-${idx}-rank`} value={kid.rank} onChange={(e) => updateKid(idx, 'rank', e.target.value)} className={inputCls}>
                       {BELT_LABELS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Program</label>
-                    <select value={kid.program} onChange={(e) => updateKid(idx, 'program', e.target.value)} className={inputCls} required>
+                    <label htmlFor={`kid-${idx}-program`} className="block text-xs font-medium text-gray-600 mb-1">Program</label>
+                    <select id={`kid-${idx}-program`} name={`kid-${idx}-program`} value={kid.program} onChange={(e) => updateKid(idx, 'program', e.target.value)} className={inputCls} required>
                       <option value="">— Select a program —</option>
                       {PROGRAMS.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -872,21 +874,22 @@ function FamilyDashboard({
               </div>
               <form onSubmit={handleAddStudent} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-700">Name *</label>
-                  <input type="text" required value={newKid.name}
+                  <label htmlFor="add-student-name" className="text-xs font-medium text-gray-700">Name *</label>
+                  <input id="add-student-name" name="student-name" type="text" required value={newKid.name}
+                    autoComplete="off"
                     onChange={(e) => setNewKid((k) => ({ ...k, name: e.target.value }))}
                     className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-700">Age</label>
-                    <input type="number" min={3} max={18} value={newKid.age}
+                    <label htmlFor="add-student-age" className="text-xs font-medium text-gray-700">Age</label>
+                    <input id="add-student-age" name="student-age" type="number" min={3} max={18} value={newKid.age}
                       onChange={(e) => setNewKid((k) => ({ ...k, age: e.target.value }))}
                       className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-700">Belt Rank</label>
-                    <select value={newKid.rank} onChange={(e) => setNewKid((k) => ({ ...k, rank: e.target.value }))}
+                    <label htmlFor="add-student-rank" className="text-xs font-medium text-gray-700">Belt Rank</label>
+                    <select id="add-student-rank" name="student-rank" value={newKid.rank} onChange={(e) => setNewKid((k) => ({ ...k, rank: e.target.value }))}
                       className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                       {Object.entries(beltColors).map(([val, c]) => (
                         <option key={val} value={val}>{c.label}</option>
@@ -895,8 +898,8 @@ function FamilyDashboard({
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-700">Program</label>
-                  <select value={newKid.program} onChange={(e) => setNewKid((k) => ({ ...k, program: e.target.value }))}
+                  <label htmlFor="add-student-program" className="text-xs font-medium text-gray-700">Program</label>
+                  <select id="add-student-program" name="student-program" value={newKid.program} onChange={(e) => setNewKid((k) => ({ ...k, program: e.target.value }))}
                     className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                     <option value="">— Select a program —</option>
                     {PROGRAMS.map((p) => (

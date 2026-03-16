@@ -32,9 +32,11 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  id?: string;
+  name?: string;
 }
 
-export default function AddressAutocomplete({ value, onChange, placeholder }: Props) {
+export default function AddressAutocomplete({ value, onChange, placeholder, id, name }: Props) {
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,6 +92,8 @@ export default function AddressAutocomplete({ value, onChange, placeholder }: Pr
   return (
     <div ref={containerRef} className="relative">
       <input
+        id={id}
+        name={name}
         type="text"
         autoComplete="off"
         value={value}
