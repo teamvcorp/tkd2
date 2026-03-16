@@ -1,6 +1,6 @@
 /* styles/ContactPage.module.css */
 .container {
-    @apply flex flex-col items-center mx-auto max-w-xl py-10 ;
+    @apply flex flex-col items-center mx-auto max-w-xl py-10 px-4;
 }
 
 .title {

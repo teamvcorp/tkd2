@@ -1,0 +1,60 @@
+export interface Program {
+  id: string;
+  name: string;
+  description: string;
+  stripeProductId: string; // Replace with real Stripe Product IDs
+  pricePerYear: number;    // in cents USD
+}
+
+export const PROGRAMS: Program[] = [
+  {
+    id: 'White - Orange',
+    name: 'Tier 1: Taekwondo Beginner',
+    description: 'Ages 4–6 · Fun, foundational TKD',
+    stripeProductId: 'prod_U9fnAWsoolvCb1',
+    pricePerYear: 105000, // $1,050/yr
+  },
+  {
+    id: 'Green - Light Blue',
+    name: 'Tier 2: Taekwondo Intermediate',
+    description: 'Ages 7–12 · Belt progression & basics',
+    stripeProductId: 'prod_U9g9XfX2t6lC52',
+    pricePerYear: 105000, // $1,050/yr
+  },
+  {
+    id: 'DarkBlue - Red',
+    name: 'Tier 3: Taekwondo Advanced',
+    description: 'Ages 13–17 · Advanced forms & sparring',
+    stripeProductId: 'prod_U9gAIxEjUfHy4K',
+    pricePerYear: 105000, // $1,050/yr
+  },
+  {
+    id: 'Deputy Black belt Program',
+    name: 'Deputy Black',
+    description: 'Black Belt Preparation',
+    stripeProductId: 'prod_U9gCDkYdEIcFTR',
+    pricePerYear: 210000, // $2,100/yr
+  },
+  {
+    id: 'Black belt Program',
+    name: 'Black Belt',
+    description: 'All ages · Best for 6+ students',
+    stripeProductId: 'prod_U9gDE8dgEvqYsC',
+    pricePerYear: 1000000, // $10,000/yr
+  },
+  {
+    id: 'Homeschool Taekwondo Program',
+    name: 'Homeschool Taekwondo',
+    description: 'All ages · Best for 6+ students',
+    stripeProductId: 'prod_U9g1CzFYMg1jUY',
+    pricePerYear: 1200000, // $12,000/yr
+  },
+];
+
+export function getProgramById(id: string): Program | undefined {
+  return PROGRAMS.find((p) => p.id === id);
+}
+
+export function formatPrice(cents: number): string {
+  return `$${(cents / 100).toLocaleString()}/yr`;
+}

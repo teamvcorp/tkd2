@@ -68,6 +68,8 @@ export default function Navbar() {
                                 className="h-14 w-auto"
                                 width={250}
                                 height={100}
+                                loading="eager"
+                                priority
                             />
                         </Link>
 
@@ -124,7 +126,7 @@ export default function Navbar() {
                         </div>
                         <div className="shrink-0">
                             <Link
-                                href="/plans"
+                                href="/members"
                                 className="relative inline-flex items-center gap-x-1.5 rounded-md bg-red-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                             >
                                 Sign Up Today!
