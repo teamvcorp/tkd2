@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { auth } from '@/auth';
-import { stripe, assertStripeKey } from '@/lib/stripe';
+import { stripe, assertStripeKey, stripeErrMsg } from '@/lib/stripe';
 import { getUserByUsername } from '@/lib/userStore';
 import { getProgramById } from '@/lib/programs';
 
@@ -61,14 +60,8 @@ export async function POST(request: Request) {
       kidName: kid.name,
     });
   } catch (err) {
-    console.error('enroll error:', err);
-    // Surface Stripe's own message so it shows up in Vercel logs clearly
-    const message =
-      err instanceof Stripe.errors.StripeError
-        ? err.message
-        : err instanceof Error
-        ? err.message
-        : 'Enrollment failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const msg = stripeErrMsg(err);
+    console.error('enroll error:', msg, err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

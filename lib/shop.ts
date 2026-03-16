@@ -3,6 +3,7 @@
 // Use the admin dashboard (/admin) to create, edit and delete products.
 
 import { put, list } from '@vercel/blob';
+import { unstable_noStore as noStore } from 'next/cache';
 
 const PRODUCTS_BLOB_KEY = 'shop-config/products.json';
 
@@ -37,6 +38,7 @@ export function formatShopPrice(cents: number): string {
 // ─── Blob read / write ────────────────────────────────────────────────────────
 
 export async function getProducts(): Promise<ShopProduct[]> {
+  noStore(); // prevent Next.js from caching list() or the blob fetch
   try {
     const { blobs } = await list({ prefix: PRODUCTS_BLOB_KEY });
     if (blobs.length === 0) return [];

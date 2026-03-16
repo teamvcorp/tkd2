@@ -1,4 +1,5 @@
 import { put, list } from '@vercel/blob';
+import { unstable_noStore as noStore } from 'next/cache';
 import type { User } from './types';
 
 const USER_PREFIX = 'tkd-users/';
@@ -8,6 +9,7 @@ const USER_PREFIX = 'tkd-users/';
  * Runs server-side only (requires BLOB_READ_WRITE_TOKEN).
  */
 export async function getUserByUsername(username: string): Promise<User | null> {
+  noStore(); // prevent Next.js from caching list() or the blob fetch
   try {
     const prefix = `${USER_PREFIX}${username.toLowerCase().trim()}.json`;
     const { blobs } = await list({ prefix });

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { stripe } from '@/lib/stripe';
+import { stripe, assertStripeKey, stripeErrMsg } from '@/lib/stripe';
 import { getUserByUsername, updateUser } from '@/lib/userStore';
 import { getProductById } from '@/lib/shop';
 import type { Purchase } from '@/lib/types';
 import { sendOrderEmail } from '@/lib/email';
 export async function POST(request: Request) {
   try {
+    assertStripeKey();
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -96,7 +97,8 @@ export async function POST(request: Request) {
       { status: 402 },
     );
   } catch (err) {
-    console.error('shop-order error:', err);
-    return NextResponse.json({ error: 'Order failed. Please try again.' }, { status: 500 });
+    const msg = stripeErrMsg(err);
+    console.error('shop-order error:', msg, err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
