@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
 import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { SHOP_CATEGORIES } from '@/lib/shop';
-import type { ShopProduct, ShopCategory } from '@/lib/shop';
+import { SHOP_CATEGORIES } from '@/lib/shop-types';
+import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 
 interface AdminProduct extends Omit<ShopProduct, 'quantity'> {
   quantity: number | null;

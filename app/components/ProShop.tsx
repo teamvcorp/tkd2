@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { SHOP_CATEGORIES, formatShopPrice } from '@/lib/shop';
+import { SHOP_CATEGORIES, formatShopPrice } from '@/lib/shop-types';
 import AddressAutocomplete from '@/app/components/AddressAutocomplete';
-import type { ShopProduct } from '@/lib/shop';
+import type { ShopProduct } from '@/lib/shop-types';
 
 interface PendingPurchase {
   product: ShopProduct;

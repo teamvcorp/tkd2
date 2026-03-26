@@ -1,92 +1,52 @@
 ﻿// ─── Pro Shop service layer ───────────────────────────────────────────────────
-// All product data lives exclusively in Vercel Blob (shop-config/products.json).
+// Product data lives in MongoDB. Images remain in Vercel Blob.
 // Use the admin dashboard (/admin) to create, edit and delete products.
+// SERVER-ONLY — never imported by client components.
 
-import { put, list } from '@vercel/blob';
+import 'server-only';
 import { unstable_noStore as noStore } from 'next/cache';
+import client from './mongodb';
+import type { ShopProduct } from './shop-types';
+export type { ShopCategory, ShopProduct } from './shop-types';
+export { SHOP_CATEGORIES, formatShopPrice } from './shop-types';
 
-const PRODUCTS_BLOB_KEY = 'shop-config/products.json';
+const DB = process.env.MONGODB_DATABASE ?? 'tkd';
+const col = () => client.db(DB).collection('products');
 
-export type ShopCategory = 'Programs' |'Uniforms' | 'Sparring Gear' | 'Training Gear' | 'Extras';
-
-export const SHOP_CATEGORIES: ShopCategory[] = [
-  'Programs',
-  'Uniforms',
-  'Sparring Gear',
-  'Training Gear',
-  'Extras',
-];
-
-export interface ShopProduct {
-  id: string;
-  name: string;
-  description: string;
-  price: number;            // in cents USD  (e.g. 4500 = $45.00)
-  category: ShopCategory;
-  imageSrc: string;
-  imageAlt: string;
-  stripeProductId: string;  // Stripe Product ID  – editable in /admin
-  stripePriceId: string;    // Stripe Price ID    – editable in /admin
-  sizes?: string[];
-  inStock: boolean;
-  quantity?: number;        // qty on hand – managed by admin
-}
-
-export function formatShopPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-// ─── Blob read / write ────────────────────────────────────────────────────────
+// ─── MongoDB read / write ─────────────────────────────────────────────────────
 
 export async function getProducts(): Promise<ShopProduct[]> {
-  noStore(); // prevent Next.js from caching list() or the blob fetch
-  try {
-    const { blobs } = await list({ prefix: PRODUCTS_BLOB_KEY });
-    if (blobs.length === 0) return [];
-    // Sort descending so we always read the most recently written version
-    const latest = blobs.sort(
-      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
-    )[0];
-    const res = await fetch(latest.url, {
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-    });
-    if (!res.ok) return [];
-    return (await res.json()) as ShopProduct[];
-  } catch {
-    return [];
-  }
+  noStore();
+  const docs = await col().find({}, { projection: { _id: 0 } }).toArray();
+  return docs as unknown as ShopProduct[];
 }
 
-export async function saveProducts(products: ShopProduct[]): Promise<void> {
-  await put(PRODUCTS_BLOB_KEY, JSON.stringify(products), {
-    access: 'private',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+export async function getProductById(id: string): Promise<ShopProduct | undefined> {
+  noStore();
+  const doc = await col().findOne({ id }, { projection: { _id: 0 } });
+  return (doc as unknown as ShopProduct) ?? undefined;
+}
+
+export async function addProduct(product: ShopProduct): Promise<void> {
+  await col().insertOne({ ...product });
 }
 
 export async function updateProduct(
   productId: string,
   patch: Partial<ShopProduct>,
 ): Promise<void> {
-  const products = await getProducts();
-  const updated = products.map((p) => (p.id === productId ? { ...p, ...patch } : p));
-  await saveProducts(updated);
-}
-
-export async function getProductById(id: string): Promise<ShopProduct | undefined> {
-  const products = await getProducts();
-  return products.find((p) => p.id === id);
-}
-
-export async function addProduct(product: ShopProduct): Promise<void> {
-  const products = await getProducts();
-  await saveProducts([...products, product]);
+  await col().updateOne({ id: productId }, { $set: patch });
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const products = await getProducts();
-  await saveProducts(products.filter((p) => p.id !== id));
+  await col().deleteOne({ id });
+}
+
+// Bulk upsert — used for imports / seeding
+export async function saveProducts(products: ShopProduct[]): Promise<void> {
+  if (products.length === 0) return;
+  const ops = products.map((p) => ({
+    updateOne: { filter: { id: p.id }, update: { $set: p }, upsert: true },
+  }));
+  await col().bulkWrite(ops);
 }
