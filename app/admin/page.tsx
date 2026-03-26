@@ -2,9 +2,33 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, PencilIcon, KeyIcon, ChevronDownIcon, ChevronUpIcon, UserGroupIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
+import { PROGRAMS } from '@/lib/programs';
+import type { Kid } from '@/lib/types';
+
+const BELT_OPTIONS = [
+  { value: 'white', label: 'White' },
+  { value: 'yellow', label: 'Yellow' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'green', label: 'Green' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'lightBlue', label: 'Light Blue' },
+  { value: 'darkBlue', label: 'Dark Blue' },
+  { value: 'brown', label: 'Brown' },
+  { value: 'red', label: 'Red' },
+];
+
+interface AdminUser {
+  id: string;
+  username: string;
+  parentName: string;
+  parentAge: number;
+  kids: Kid[];
+  stripeCustomerId?: string;
+  hasPaymentMethod: boolean;
+}
 
 interface AdminProduct extends Omit<ShopProduct, 'quantity'> {
   quantity: number | null;
@@ -210,6 +234,117 @@ export default function AdminPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
 
+  // ── Users tab state ────────────────────────────────────────────────────────
+  const [activeSection, setActiveSection] = useState<'shop' | 'users'>('shop');
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [editingKids, setEditingKids] = useState<Record<string, Kid[]>>({});
+  const [userSavingId, setUserSavingId] = useState<string | null>(null);
+  const [userSavedId, setUserSavedId] = useState<string | null>(null);
+  const [resetPwUserId, setResetPwUserId] = useState<string | null>(null);
+  const [resetPwValue, setResetPwValue] = useState('');
+  const [resetPwLoading, setResetPwLoading] = useState(false);
+  const [resetPwDone, setResetPwDone] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) return;
+      const data = await res.json();
+      setUsers(data.users ?? []);
+      setUsersLoaded(true);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleSwitchSection = (section: 'shop' | 'users') => {
+    setActiveSection(section);
+    if (section === 'users' && !usersLoaded) loadUsers();
+  };
+
+  const handleSaveKids = async (userId: string) => {
+    const kids = editingKids[userId];
+    if (!kids) return;
+    setUserSavingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kids }),
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, kids } : u));
+        setUserSavedId(userId);
+        setTimeout(() => setUserSavedId(null), 2000);
+      } else {
+        setError('Failed to save user. Please try again.');
+      }
+    } catch {
+      setError('Failed to save user. Please try again.');
+    } finally {
+      setUserSavingId(null);
+    }
+  };
+
+  const handleResetPassword = async (userId: string) => {
+    if (!resetPwValue || resetPwValue.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    setResetPwLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPwValue }),
+      });
+      if (res.ok) {
+        setResetPwDone(userId);
+        setResetPwValue('');
+        setResetPwUserId(null);
+        setTimeout(() => setResetPwDone(null), 3000);
+      } else {
+        const data = await res.json();
+        setError(data.error ?? 'Password reset failed.');
+      }
+    } catch {
+      setError('Password reset failed.');
+    } finally {
+      setResetPwLoading(false);
+    }
+  };
+
+  const startEditingKids = (user: AdminUser) => {
+    setEditingKids((prev) => ({
+      ...prev,
+      [user.id]: user.kids.map((k) => ({ ...k })),
+    }));
+    setExpandedUserId(user.id);
+  };
+
+  const updateEditingKid = (userId: string, kidIndex: number, field: keyof Kid, value: string | number) => {
+    setEditingKids((prev) => {
+      const kids = [...(prev[userId] ?? [])];
+      kids[kidIndex] = { ...kids[kidIndex], [field]: value };
+      return { ...prev, [userId]: kids };
+    });
+  };
+
+  const filteredUsers = users.filter((u) => {
+    if (!userSearch.trim()) return true;
+    const q = userSearch.toLowerCase();
+    return (
+      u.username.toLowerCase().includes(q) ||
+      u.parentName.toLowerCase().includes(q) ||
+      u.kids.some((k) => k.name.toLowerCase().includes(q))
+    );
+  });
+
   const saveProductFields = async (productId: string, fields: Record<string, unknown>) => {
     setSavingId(productId);
     try {
@@ -386,7 +521,7 @@ export default function AdminPage() {
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-1 uppercase tracking-wide">
             Admin
           </h2>
-          <p className="text-sm text-gray-500 text-center mb-6">Pro Shop Management</p>
+          <p className="text-sm text-gray-500 text-center mb-6">Management Dashboard</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
@@ -418,16 +553,39 @@ export default function AdminPage() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-y-3 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pro Shop Admin</h1>
-            <p className="text-sm text-gray-500 mt-0.5 hidden sm:block">
-              Tap or hover a product image to upload · Toggle In Stock · Set quantity
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           </div>
           <button
             onClick={handleLogout}
             className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Sign Out
+          </button>
+        </div>
+
+        {/* Section switcher */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => handleSwitchSection('shop')}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeSection === 'shop'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <ShoppingBagIcon className="w-4 h-4" />
+            Pro Shop
+          </button>
+          <button
+            onClick={() => handleSwitchSection('users')}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeSection === 'users'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <UserGroupIcon className="w-4 h-4" />
+            Users
           </button>
         </div>
 
@@ -438,6 +596,9 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ── Pro Shop Section ──────────────────────────────────────────── */}
+        {activeSection === 'shop' && (
+          <>
         <TabGroup>
           <div className="overflow-x-auto border-b border-gray-200 mb-6">
             <TabList className="-mb-px flex space-x-8">
@@ -493,6 +654,203 @@ export default function AdminPage() {
             })}
           </TabPanels>
         </TabGroup>
+          </>
+        )}
+
+        {/* ── Users Section ─────────────────────────────────────────────── */}
+        {activeSection === 'users' && (
+          <div>
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search by username, parent name, or kid name…"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full max-w-md rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            {usersLoading ? (
+              <div className="py-12 text-center text-gray-400 text-sm">Loading users…</div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="py-12 text-center text-gray-400 text-sm">
+                {userSearch ? 'No users match your search.' : 'No users found.'}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {filteredUsers.map((user) => {
+                  const isExpanded = expandedUserId === user.id;
+                  const kids = editingKids[user.id] ?? user.kids;
+                  return (
+                    <div key={user.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      {/* User header row */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isExpanded) {
+                            setExpandedUserId(null);
+                          } else {
+                            startEditingKids(user);
+                          }
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {user.parentName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
+                            <p className="text-xs text-gray-500 truncate">@{user.username} · {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {resetPwDone === user.id && (
+                            <span className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircleIcon className="w-3.5 h-3.5" /> Password reset
+                            </span>
+                          )}
+                          {userSavedId === user.id && (
+                            <span className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircleIcon className="w-3.5 h-3.5" /> Saved
+                            </span>
+                          )}
+                          {isExpanded ? (
+                            <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-100 px-4 py-4">
+                          {/* Password reset */}
+                          <div className="mb-5 pb-4 border-b border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <KeyIcon className="w-4 h-4 text-gray-500" />
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Reset Password</span>
+                            </div>
+                            {resetPwUserId === user.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="New password (min 8 chars)"
+                                  value={resetPwValue}
+                                  onChange={(e) => setResetPwValue(e.target.value)}
+                                  className="flex-1 rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={resetPwLoading}
+                                  onClick={() => handleResetPassword(user.id)}
+                                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                                >
+                                  {resetPwLoading ? 'Resetting…' : 'Reset'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setResetPwUserId(null); setResetPwValue(''); }}
+                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setResetPwUserId(user.id)}
+                                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                              >
+                                Reset Password
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Kids editing */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <PencilIcon className="w-4 h-4 text-gray-500" />
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Students</span>
+                            </div>
+
+                            {kids.length === 0 ? (
+                              <p className="text-xs text-gray-400">No students registered.</p>
+                            ) : (
+                              <div className="flex flex-col gap-4">
+                                {kids.map((kid, idx) => (
+                                  <div key={idx} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                    <p className="text-sm font-semibold text-gray-900 mb-2">{kid.name}</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                      {/* Rank */}
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-medium text-gray-600">Rank</label>
+                                        <select
+                                          value={kid.rank}
+                                          onChange={(e) => updateEditingKid(user.id, idx, 'rank', e.target.value)}
+                                          className="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        >
+                                          {BELT_OPTIONS.map((b) => (
+                                            <option key={b.value} value={b.value}>{b.label}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      {/* Program */}
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-medium text-gray-600">Program</label>
+                                        <select
+                                          value={kid.program ?? ''}
+                                          onChange={(e) => updateEditingKid(user.id, idx, 'program', e.target.value)}
+                                          className="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        >
+                                          <option value="">None</option>
+                                          {PROGRAMS.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      {/* Status */}
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-medium text-gray-600">Status</label>
+                                        <select
+                                          value={kid.status ?? 'pending'}
+                                          onChange={(e) => updateEditingKid(user.id, idx, 'status', e.target.value)}
+                                          className="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        >
+                                          <option value="pending">Pending</option>
+                                          <option value="active">Active</option>
+                                          <option value="inactive">Inactive</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Save button */}
+                            <div className="mt-4 flex items-center gap-3">
+                              <button
+                                type="button"
+                                disabled={userSavingId === user.id}
+                                onClick={() => handleSaveKids(user.id)}
+                                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                              >
+                                {userSavingId === user.id ? 'Saving…' : 'Save Changes'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* ── Add Product Modal ─────────────────────────────────────────────── */}
