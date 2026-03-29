@@ -11,22 +11,22 @@ export const PROGRAMS: Program[] = [
     id: 'White - Orange',
     name: 'Tier 1: Taekwondo Beginner',
     description: 'Ages 4–6 · Fun, foundational TKD',
-    stripeProductId: 'prod_U9fnAWsoolvCb1',
-    pricePerYear: 105000, // $1,050/yr
+    stripeProductId: 'prod_UEd0dT4JRBl3rr',
+    pricePerYear: 90000, // $900/yr
   },
   {
     id: 'Green - Light Blue',
     name: 'Tier 2: Taekwondo Intermediate',
     description: 'Ages 7–12 · Belt progression & basics',
-    stripeProductId: 'prod_U9g9XfX2t6lC52',
-    pricePerYear: 105000, // $1,050/yr
+    stripeProductId: 'prod_UEd1yG4vzSsUGp',
+    pricePerYear: 120000, // $1,200/yr
   },
   {
     id: 'DarkBlue - Red',
     name: 'Tier 3: Taekwondo Advanced',
     description: 'Ages 13–17 · Advanced forms & sparring',
-    stripeProductId: 'prod_U9gAIxEjUfHy4K',
-    pricePerYear: 105000, // $1,050/yr
+    stripeProductId: 'prod_UEd3xUKkkl6Egm',
+    pricePerYear: 150000, // $1,500/yr
   },
   {
     id: 'Deputy Black belt Program',
