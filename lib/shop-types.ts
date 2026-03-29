@@ -2,12 +2,11 @@
 // Safe to import from both client and server components.
 // DB functions live in lib/shop.ts (server-only).
 
-export type ShopCategory = 'Programs' | 'Uniforms' | 'Sparring Gear' | 'Training Gear' | 'Extras';
+export type ShopCategory = 'Programs' | 'Uniforms' | 'Training Gear' | 'Extras';
 
 export const SHOP_CATEGORIES: ShopCategory[] = [
   'Programs',
   'Uniforms',
-  'Sparring Gear',
   'Training Gear',
   'Extras',
 ];

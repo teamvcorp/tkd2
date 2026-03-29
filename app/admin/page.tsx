@@ -45,6 +45,7 @@ function ProductCard({
   onInStockToggle,
   onImageUpload,
   onStripeIdsChange,
+  onCategoryChange,
   onDelete,
 }: {
   product: AdminProduct;
@@ -55,6 +56,7 @@ function ProductCard({
   onInStockToggle: (id: string, inStock: boolean) => void;
   onImageUpload: (id: string, file: File) => void;
   onStripeIdsChange: (id: string, stripeProductId: string, stripePriceId: string) => void;
+  onCategoryChange: (id: string, category: ShopCategory) => void;
   onDelete: (id: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -128,6 +130,20 @@ function ProductCard({
           >
             <TrashIcon className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Category */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-600">Category</label>
+          <select
+            value={product.category}
+            onChange={(e) => onCategoryChange(product.id, e.target.value as ShopCategory)}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            {SHOP_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
         </div>
 
         {/* In Stock toggle */}
@@ -430,6 +446,11 @@ export default function AdminPage() {
     await saveProductFields(productId, { stripeProductId, stripePriceId });
   };
 
+  const handleCategoryChange = async (productId: string, category: ShopCategory) => {
+    setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, category } : p));
+    await saveProductFields(productId, { category });
+  };
+
   const handleImageUpload = async (productId: string, file: File) => {
     setUploadingId(productId);
     setError('');
@@ -640,6 +661,7 @@ export default function AdminPage() {
                         onInStockToggle={handleInStockToggle}
                         onImageUpload={handleImageUpload}
                         onStripeIdsChange={handleStripeIdsChange}
+                        onCategoryChange={handleCategoryChange}
                         onDelete={handleDeleteProduct}
                       />
                     ))}
