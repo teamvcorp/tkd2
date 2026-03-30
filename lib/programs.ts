@@ -8,6 +8,13 @@ export interface Program {
 
 export const PROGRAMS: Program[] = [
   {
+    id: 'White - Red',
+    name: 'Self Paced Taekwondo',
+    description: 'Come when you can train as hard as your schedule allows. We will support you as needed.',
+    stripeProductId: 'prod_UF1U4x512Nzz1B',
+    pricePerYear: 60000, // $600/yr
+  },
+  {
     id: 'White - Orange',
     name: 'Tier 1: Taekwondo Beginner',
     description: 'Ages 4–6 · Fun, foundational TKD',
