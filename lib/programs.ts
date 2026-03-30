@@ -51,10 +51,10 @@ export const PROGRAMS: Program[] = [
   },
   {
     id: 'Homeschool Taekwondo Program',
-    name: 'Homeschool Taekwondo',
+    name: 'Homeschool +',
     description: 'All ages · Best for 6+ students',
     stripeProductId: 'prod_U9g1CzFYMg1jUY',
-    pricePerYear: 1200000, // $12,000/yr
+    pricePerYear: 240000, // $2,400 /yr
   },
 ];
 
