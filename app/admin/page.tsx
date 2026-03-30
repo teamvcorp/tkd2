@@ -351,6 +351,14 @@ export default function AdminPage() {
     });
   };
 
+  const removeEditingKid = (userId: string, kidIndex: number) => {
+    setEditingKids((prev) => {
+      const kids = [...(prev[userId] ?? [])];
+      kids.splice(kidIndex, 1);
+      return { ...prev, [userId]: kids };
+    });
+  };
+
   const filteredUsers = users.filter((u) => {
     if (!userSearch.trim()) return true;
     const q = userSearch.toLowerCase();
@@ -803,7 +811,21 @@ export default function AdminPage() {
                               <div className="flex flex-col gap-4">
                                 {kids.map((kid, idx) => (
                                   <div key={idx} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <p className="text-sm font-semibold text-gray-900 mb-2">{kid.name}</p>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="text-sm font-semibold text-gray-900">{kid.name}</p>
+                                      <button
+                                        type="button"
+                                        title="Remove student"
+                                        onClick={() => {
+                                          if (window.confirm(`Remove "${kid.name}" from this account? Click Save Changes to confirm.`)) {
+                                            removeEditingKid(user.id, idx);
+                                          }
+                                        }}
+                                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                      >
+                                        <TrashIcon className="w-4 h-4" />
+                                      </button>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                       {/* Rank */}
                                       <div className="flex flex-col gap-1">
