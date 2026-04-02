@@ -277,7 +277,7 @@ export default function AdminChatClient() {
               {selectedThread && selectedThread.status !== 'closed' && (
                 <form onSubmit={sendMessage} className="flex gap-3 p-4 border-t border-gray-100 bg-gray-50">
                   <input type="text" placeholder="Type a reply…" value={input} onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-300" />
+                    className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-indigo-300" />
                   <button type="submit" disabled={sending || !input.trim()}
                     className="rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 disabled:opacity-40 transition-colors">
                     {sending ? 'Sending…' : 'Send'}
