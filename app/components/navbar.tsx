@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import ChatWidget from './ChatWidget'
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -113,6 +114,7 @@ export default function Navbar() {
                         </div>
                     </div>
                     <div className="hidden md:flex items-center gap-x-3">
+                        <ChatWidget />
                         <div className="shrink-0">
                             <button
                                 onClick={() => {
