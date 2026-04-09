@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     stripePriceId: body.stripePriceId ?? '',
     active: body.active ?? true,
     updatedAt: new Date().toISOString(),
+    products: body.products ?? existing?.products ?? [],
   };
 
   await upsertPromo(promo);

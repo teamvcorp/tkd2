@@ -10,6 +10,14 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
     ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
     : null;
 
+interface PromoProduct {
+    productId: string;
+    name: string;
+    price: number;
+    stripeProductId: string;
+    stripePriceId: string;
+}
+
 interface PromoData {
     id: string;
     description: string;
@@ -17,6 +25,7 @@ interface PromoData {
     quantity: number;
     imageSrc: string;
     active: boolean;
+    products?: PromoProduct[];
 }
 
 /* ── Stripe payment form ──────────────────────────────────────────────────── */
@@ -77,6 +86,7 @@ function PromoPaymentForm({ onSuccess, onCancel }: { onSuccess: (piId: string) =
 export default function PromoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     const [promo, setPromo] = useState<PromoData | null>(null);
     const [qtyStr, setQtyStr] = useState('1');
+    const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -101,6 +111,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
 
     const resetAndClose = () => {
         setQtyStr('1');
+        setSelectedProductId(null);
         setCustomerName('');
         setCustomerEmail('');
         setClientSecret(null);
@@ -111,6 +122,13 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
     };
 
     const parsedQty = Math.max(1, parseInt(qtyStr, 10) || 1);
+
+    // Determine active item price
+    const activeProduct = selectedProductId && promo?.products?.length
+        ? promo.products.find(p => p.productId === selectedProductId)
+        : null;
+    const activePrice = activeProduct ? activeProduct.price : (promo?.price ?? 0);
+    const activeName = activeProduct ? activeProduct.name : (promo?.description ?? 'Promo');
 
     const handleProceedToPayment = async () => {
         if (!customerName.trim() || !customerEmail.trim()) {
@@ -127,6 +145,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                     quantity: parsedQty,
                     name: customerName.trim(),
                     email: customerEmail.trim(),
+                    productId: selectedProductId || undefined,
                 }),
             });
             const data = await res.json();
@@ -193,9 +212,50 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                                 {promo.description}
                             </p>
                         )}
-                        <p className="mt-1 text-center text-gray-600">
-                            ${(promo.price / 100).toFixed(2)} each
-                        </p>
+
+                        {/* Product selector — only shown when products exist */}
+                        {promo.products && promo.products.length > 0 ? (
+                            <div className="mt-4 space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">Select an item:</label>
+                                {/* Main promo option */}
+                                <label className={`flex items-center justify-between border rounded-lg px-3 py-2.5 cursor-pointer ${!selectedProductId ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="promo-product"
+                                            checked={!selectedProductId}
+                                            onChange={() => setSelectedProductId(null)}
+                                            className="h-4 w-4 text-green-600 focus:ring-green-500"
+                                        />
+                                        <span className="text-sm text-gray-900">{promo.description}</span>
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-700">${(promo.price / 100).toFixed(2)}</span>
+                                </label>
+                                {/* Additional products */}
+                                {promo.products.map((prod) => (
+                                    <label
+                                        key={prod.productId}
+                                        className={`flex items-center justify-between border rounded-lg px-3 py-2.5 cursor-pointer ${selectedProductId === prod.productId ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="radio"
+                                                name="promo-product"
+                                                checked={selectedProductId === prod.productId}
+                                                onChange={() => setSelectedProductId(prod.productId)}
+                                                className="h-4 w-4 text-green-600 focus:ring-green-500"
+                                            />
+                                            <span className="text-sm text-gray-900">{prod.name}</span>
+                                        </div>
+                                        <span className="text-sm font-semibold text-gray-700">${(prod.price / 100).toFixed(2)}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="mt-1 text-center text-gray-600">
+                                ${(promo.price / 100).toFixed(2)} each
+                            </p>
+                        )}
 
                         {/* Quantity */}
                         <div className="mt-4 flex items-center justify-center gap-2">
@@ -211,7 +271,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                         </div>
 
                         <p className="mt-2 text-center font-semibold text-gray-800">
-                            Total: ${((promo.price * parsedQty) / 100).toFixed(2)}
+                            Total: ${((activePrice * parsedQty) / 100).toFixed(2)}
                         </p>
 
                         {/* Customer info */}
@@ -252,7 +312,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                     <div className="pt-2">
                         <h3 className="text-lg font-semibold text-gray-800 mb-1">Payment</h3>
                         <p className="text-sm text-gray-500 mb-4">
-                            {promo.description} &times; {parsedQty} &mdash; ${((promo.price * parsedQty) / 100).toFixed(2)}
+                            {activeName} &times; {parsedQty} &mdash; ${((activePrice * parsedQty) / 100).toFixed(2)}
                         </p>
                         <Elements stripe={stripePromise} options={{ clientSecret }}>
                             <PromoPaymentForm

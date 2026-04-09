@@ -10,10 +10,11 @@ export async function POST(request: Request) {
   try {
     assertStripeKey();
 
-    const { quantity, name, email } = (await request.json()) as {
+    const { quantity, name, email, productId } = (await request.json()) as {
       quantity: number;
       name: string;
       email: string;
+      productId?: string;  // optional: buy a specific product instead of main promo
     };
 
     if (!name?.trim() || !email?.trim()) {
@@ -33,17 +34,35 @@ export async function POST(request: Request) {
       );
     }
 
-    const amount = promo.price * qty;
+    let unitPrice: number;
+    let itemDescription: string;
+
+    if (productId && promo.products?.length) {
+      const product = promo.products.find(p => p.productId === productId);
+      if (!product) {
+        return NextResponse.json(
+          { error: 'Product not found in this promo.' },
+          { status: 404 },
+        );
+      }
+      unitPrice = product.price;
+      itemDescription = product.name;
+    } else {
+      unitPrice = promo.price;
+      itemDescription = promo.description;
+    }
+
+    const amount = unitPrice * qty;
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: 'usd',
       automatic_payment_methods: { enabled: true },
-      description: `Promo: ${promo.description} (x${qty})`,
+      description: `Promo: ${itemDescription} (x${qty})`,
       metadata: {
         type: 'promo_order',
         promoId: promo.id,
-        promoDescription: promo.description,
+        promoDescription: itemDescription,
         quantity: String(qty),
         customerName: name.trim(),
         customerEmail: email.trim(),

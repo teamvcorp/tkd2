@@ -2,6 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+interface PromoProduct {
+  productId: string;
+  name: string;
+  price: number;
+  stripeProductId: string;
+  stripePriceId: string;
+}
+
 interface Promo {
   id: string;
   description: string;
@@ -12,6 +20,7 @@ interface Promo {
   stripePriceId: string;
   active: boolean;
   updatedAt: string;
+  products?: PromoProduct[];
 }
 
 export default function AdminPromoClient() {
@@ -29,6 +38,7 @@ export default function AdminPromoClient() {
   const [active, setActive] = useState(true);
   const [imageSrc, setImageSrc] = useState('');
   const [updatedAt, setUpdatedAt] = useState('');
+  const [products, setProducts] = useState<PromoProduct[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,6 +61,7 @@ export default function AdminPromoClient() {
         setActive(p.active);
         setImageSrc(p.imageSrc);
         setUpdatedAt(p.updatedAt);
+        setProducts(p.products ?? []);
       }
     } catch {
       setError('Failed to load promo.');
@@ -91,6 +102,7 @@ export default function AdminPromoClient() {
           stripeProductId: stripeProductId.trim(),
           stripePriceId: stripePriceId.trim(),
           active,
+          products,
         }),
       });
       const data = await res.json();
@@ -278,6 +290,90 @@ export default function AdminPromoClient() {
               <p className="text-sm text-gray-500 mt-1">Uploading…</p>
             )}
             <p className="text-xs text-gray-400 mt-1">Max 5 MB. Save the promo first before uploading an image.</p>
+          </div>
+
+          {/* ── Additional Products ── */}
+          <div className="border-t pt-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-800">Additional Products (optional)</h2>
+              <button
+                type="button"
+                onClick={() =>
+                  setProducts([
+                    ...products,
+                    { productId: crypto.randomUUID(), name: '', price: 0, stripeProductId: '', stripePriceId: '' },
+                  ])
+                }
+                className="text-sm text-blue-600 hover:underline"
+              >
+                + Add Product
+              </button>
+            </div>
+            {products.length === 0 && (
+              <p className="text-sm text-gray-400">No additional products. Click &quot;+ Add Product&quot; to add one.</p>
+            )}
+            {products.map((prod, idx) => (
+              <div key={prod.productId} className="bg-gray-50 border rounded-lg p-4 mb-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Product {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setProducts(products.filter((_, i) => i !== idx))}
+                    className="text-sm text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Product name"
+                  value={prod.name}
+                  onChange={(e) => {
+                    const updated = [...products];
+                    updated[idx] = { ...updated[idx], name: e.target.value };
+                    setProducts(updated);
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Price ($)"
+                    value={prod.price ? (prod.price / 100).toFixed(2) : ''}
+                    onChange={(e) => {
+                      const updated = [...products];
+                      updated[idx] = { ...updated[idx], price: Math.round(parseFloat(e.target.value || '0') * 100) };
+                      setProducts(updated);
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Stripe Product ID"
+                    value={prod.stripeProductId}
+                    onChange={(e) => {
+                      const updated = [...products];
+                      updated[idx] = { ...updated[idx], stripeProductId: e.target.value };
+                      setProducts(updated);
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 text-gray-900 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Stripe Price ID"
+                  value={prod.stripePriceId}
+                  onChange={(e) => {
+                    const updated = [...products];
+                    updated[idx] = { ...updated[idx], stripePriceId: e.target.value };
+                    setProducts(updated);
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-gray-900 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            ))}
           </div>
 
           {/* Save Button */}

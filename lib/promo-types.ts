@@ -1,6 +1,14 @@
 // ─── Promo shared types ───────────────────────────────────────────────────────
 // Safe to import from both client and server components.
 
+export interface PromoProduct {
+  productId: string;          // unique within this promo
+  name: string;
+  price: number;              // in cents USD
+  stripeProductId: string;
+  stripePriceId: string;
+}
+
 export interface Promo {
   id: string;
   description: string;
@@ -11,6 +19,7 @@ export interface Promo {
   stripePriceId: string;      // Stripe Price ID
   active: boolean;
   updatedAt: string;          // ISO datetime
+  products?: PromoProduct[];  // optional additional items
 }
 
 export function formatPromoPrice(cents: number): string {
