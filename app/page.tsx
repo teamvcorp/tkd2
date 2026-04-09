@@ -8,15 +8,14 @@ export default function Example() {
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'A') setShowAdmin(true);
+    const handle = (e: KeyboardEvent) => {
+      setShowAdmin(e.ctrlKey && e.shiftKey);
     };
-    const up = () => setShowAdmin(false);
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
+    window.addEventListener('keydown', handle);
+    window.addEventListener('keyup', handle);
     return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
+      window.removeEventListener('keydown', handle);
+      window.removeEventListener('keyup', handle);
     };
   }, []);
 
