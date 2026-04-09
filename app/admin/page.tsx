@@ -586,6 +586,18 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <a
+              href="/admin/promo"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Promo
+            </a>
+            <a
+              href="/admin/chat"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Chat
+            </a>
+            <a
               href="/admin/reports"
               className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
