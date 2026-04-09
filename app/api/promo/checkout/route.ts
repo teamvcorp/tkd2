@@ -33,13 +33,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (promo.quantity > 0 && qty > promo.quantity) {
-      return NextResponse.json(
-        { error: `Only ${promo.quantity} left in stock.` },
-        { status: 400 },
-      );
-    }
-
     const amount = promo.price * qty;
 
     const paymentIntent = await stripe.paymentIntents.create({
