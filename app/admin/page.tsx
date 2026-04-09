@@ -584,12 +584,20 @@ export default function AdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-          >
-            Sign Out
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/admin/reports"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Reports
+            </a>
+            <button
+              onClick={handleLogout}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {/* Section switcher */}
