@@ -1,11 +1,38 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image';
 import ThreeColumnSection from './components/threeColumn';
 
 export default function Example() {
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') setShowAdmin(true);
+    };
+    const up = () => setShowAdmin(false);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
+
   return (
     <div className="">
+      {showAdmin && (
+        <Link
+          href="/admin"
+          className="fixed bottom-4 right-4 z-50 bg-gray-900/80 text-white p-2 rounded-full shadow-lg hover:bg-gray-700 transition-opacity"
+          title="Admin"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+        </Link>
+      )}
 
       <div className="mx-auto py-12 sm:px-6 sm:py-20 lg:px-8">
         <div className="relative isolate overflow-hidden px-6 pt-16 justify-betwee sm:rounded-3xl sm:px-16 md:pt-24 lg:flex lg:gap-x-20 lg:px-24 lg:pt-0">
