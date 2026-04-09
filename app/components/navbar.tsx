@@ -4,13 +4,37 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import ChatWidget from './ChatWidget'
+
+interface PromoData {
+    id: string;
+    description: string;
+    price: number;
+    quantity: number;
+    imageSrc: string;
+    active: boolean;
+}
 
 export default function Navbar() {
     const pathname = usePathname();
     const [isModelOpen, setIsModelOpen] = useState(false);
-    const [modalUrl, setModalUrl] = useState<string | null>(null);
+    const [promo, setPromo] = useState<PromoData | null>(null);
+    const [qty, setQty] = useState(1);
+
+    const fetchPromo = useCallback(async () => {
+        try {
+            const res = await fetch('/api/promo');
+            const data = await res.json();
+            setPromo(data.promo ?? null);
+        } catch {
+            setPromo(null);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchPromo();
+    }, [fetchPromo]);
     interface IsActiveFn {
         (path: string): string;
     }
@@ -21,25 +45,67 @@ export default function Navbar() {
             : 'inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-white-500';
     
     function Modal() {
-        if (!isModelOpen) return null;
+        if (!isModelOpen || !promo) return null;
+        const unitPrice = (promo.price / 100).toFixed(2);
+        const totalPrice = ((promo.price * qty) / 100).toFixed(2);
         return (
             <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="relative bg-white rounded w-4/5 mx-auto p-4 sm:p-6">
+                <div className="relative bg-white rounded w-4/5 mx-auto p-4 sm:p-6 max-h-[90vh] overflow-auto">
                     <button
-                        onClick={() => setIsModelOpen(false)}
+                        onClick={() => { setIsModelOpen(false); setQty(1); }}
                         className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                         Close
                     </button>
-                    {modalUrl && (
-                        <iframe
-                            src={modalUrl}
-                            title="Current Promo"
-                            className="w-full mt-4 rounded border"
-                            style={{ height: '80vh' }}
-                            loading="lazy"
-                            sandbox="allow-same-origin allow-forms allow-scripts"
+                    {promo.imageSrc && (
+                        <img
+                            src={promo.imageSrc}
+                            alt={promo.description || 'Current Promo'}
+                            className="w-full mt-4 rounded border object-contain"
+                            style={{ maxHeight: '55vh' }}
                         />
+                    )}
+                    {promo.description && (
+                        <p className="mt-3 text-center text-lg font-semibold text-gray-800">
+                            {promo.description}
+                        </p>
+                    )}
+                    <p className="mt-1 text-center text-gray-600">${unitPrice} each</p>
+
+                    {/* Quantity selector */}
+                    <div className="mt-4 flex items-center justify-center gap-3">
+                        <label htmlFor="promo-qty" className="text-sm font-medium text-gray-700">Qty:</label>
+                        <button
+                            type="button"
+                            onClick={() => setQty((q) => Math.max(1, q - 1))}
+                            className="px-3 py-1 rounded bg-gray-200 text-gray-700 font-bold hover:bg-gray-300"
+                        >
+                            −
+                        </button>
+                        <input
+                            id="promo-qty"
+                            type="number"
+                            min={1}
+                            max={promo.quantity > 0 ? promo.quantity : undefined}
+                            value={qty}
+                            onChange={(e) => {
+                                const v = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                setQty(promo.quantity > 0 ? Math.min(v, promo.quantity) : v);
+                            }}
+                            className="w-16 text-center border rounded px-2 py-1 text-gray-900"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setQty((q) => promo.quantity > 0 ? Math.min(q + 1, promo.quantity) : q + 1)}
+                            className="px-3 py-1 rounded bg-gray-200 text-gray-700 font-bold hover:bg-gray-300"
+                        >
+                            +
+                        </button>
+                    </div>
+                    {qty > 1 && (
+                        <p className="mt-2 text-center text-sm text-gray-600">
+                            Total: ${totalPrice}
+                        </p>
                     )}
                 </div>
             </div>
@@ -115,17 +181,16 @@ export default function Navbar() {
                     </div>
                     <div className="hidden md:flex items-center gap-x-3">
                         <ChatWidget />
+                        {promo && (
                         <div className="shrink-0">
                             <button
-                                onClick={() => {
-                                    setIsModelOpen(true);
-                                    setModalUrl('https://gckn66p.pushpress.com/landing/plans/plan_b8f5d2be550844');
-                                }}
+                                onClick={() => setIsModelOpen(true)}
                                 className="relative inline-flex items-center gap-x-1.5 rounded-md bg-green-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
                             >
                                 Current Promo
                             </button>
                         </div>
+                        )}
                         <div className="shrink-0">
                             <Link
                                 href="/members"
