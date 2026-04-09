@@ -39,6 +39,7 @@ export default function AdminPromoClient() {
   const [imageSrc, setImageSrc] = useState('');
   const [updatedAt, setUpdatedAt] = useState('');
   const [products, setProducts] = useState<PromoProduct[]>([]);
+  const [productPrices, setProductPrices] = useState<Record<string, string>>({});
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +63,11 @@ export default function AdminPromoClient() {
         setImageSrc(p.imageSrc);
         setUpdatedAt(p.updatedAt);
         setProducts(p.products ?? []);
+        const pp: Record<string, string> = {};
+        for (const prod of p.products ?? []) {
+          pp[prod.productId] = prod.price ? (prod.price / 100).toFixed(2) : '';
+        }
+        setProductPrices(pp);
       }
     } catch {
       setError('Failed to load promo.');
@@ -298,12 +304,14 @@ export default function AdminPromoClient() {
               <h2 className="text-sm font-semibold text-gray-800">Additional Products (optional)</h2>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const id = crypto.randomUUID();
                   setProducts([
                     ...products,
-                    { productId: crypto.randomUUID(), name: '', price: 0, stripeProductId: '', stripePriceId: '' },
-                  ])
-                }
+                    { productId: id, name: '', price: 0, stripeProductId: '', stripePriceId: '' },
+                  ]);
+                  setProductPrices({ ...productPrices, [id]: '' });
+                }}
                 className="text-sm text-blue-600 hover:underline"
               >
                 + Add Product
@@ -318,7 +326,11 @@ export default function AdminPromoClient() {
                   <span className="text-sm font-medium text-gray-700">Product {idx + 1}</span>
                   <button
                     type="button"
-                    onClick={() => setProducts(products.filter((_, i) => i !== idx))}
+                    onClick={() => {
+                      const { [prod.productId]: _, ...rest } = productPrices;
+                      setProductPrices(rest);
+                      setProducts(products.filter((_, i) => i !== idx));
+                    }}
                     className="text-sm text-red-500 hover:underline"
                   >
                     Remove
@@ -337,14 +349,16 @@ export default function AdminPromoClient() {
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Price ($)"
-                    value={prod.price ? (prod.price / 100).toFixed(2) : ''}
+                    value={productPrices[prod.productId] ?? ''}
                     onChange={(e) => {
+                      const val = e.target.value;
+                      setProductPrices({ ...productPrices, [prod.productId]: val });
+                      const cents = Math.round(parseFloat(val || '0') * 100);
                       const updated = [...products];
-                      updated[idx] = { ...updated[idx], price: Math.round(parseFloat(e.target.value || '0') * 100) };
+                      updated[idx] = { ...updated[idx], price: isNaN(cents) ? 0 : cents };
                       setProducts(updated);
                     }}
                     className="w-full border rounded-lg px-3 py-2 text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
