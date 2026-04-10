@@ -20,6 +20,7 @@ export async function PATCH(
 
   if (body.parentName !== undefined) updates.parentName = String(body.parentName).trim();
   if (body.parentAge !== undefined) updates.parentAge = Number(body.parentAge);
+  if (body.archived !== undefined) updates.archived = Boolean(body.archived);
   if (body.kids !== undefined) {
     updates.kids = (body.kids as Kid[]).map((k) => ({
       name: String(k.name ?? '').trim(),

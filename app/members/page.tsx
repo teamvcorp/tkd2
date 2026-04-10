@@ -51,7 +51,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     const result = await signIn('credentials', { username, password, redirect: false });
     setLoading(false);
     if (result?.error) {
-      setError('Invalid username or password. Please try again.');
+      setError('Invalid email or password. Please try again.');
     }
   };
 
@@ -68,17 +68,17 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="login-username" className="block text-sm font-medium text-gray-700 mb-1">
-              Username
+              Email
             </label>
             <input
               id="login-username"
               name="username"
-              type="text"
-              autoComplete="username"
+              type="email"
+              autoComplete="email"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="your_username"
+              placeholder="you@example.com"
               className={inputCls}
             />
           </div>
@@ -237,11 +237,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         {step === 1 && (
           <form onSubmit={handleStep1} className="space-y-4">
             <div>
-              <label htmlFor="reg-username" className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input id="reg-username" name="username" type="text" autoComplete="username" required minLength={3}
-                pattern="[a-zA-Z0-9_]+" title="Letters, numbers and underscores only"
+              <label htmlFor="reg-username" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input id="reg-username" name="username" type="email" autoComplete="email" required
                 value={username} onChange={(e) => setUsername(e.target.value)}
-                placeholder="your_username" className={inputCls} />
+                placeholder="you@example.com" className={inputCls} />
             </div>
             <div>
               <label htmlFor="reg-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>

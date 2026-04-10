@@ -20,24 +20,19 @@ export async function POST(request: Request) {
     if (!username || !password || !parentName || parentAge == null) {
       return NextResponse.json({ error: 'All required fields must be filled in.' }, { status: 400 });
     }
-    if (username.trim().length < 3) {
-      return NextResponse.json({ error: 'Username must be at least 3 characters.' }, { status: 400 });
+    // Username must be a valid email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username.trim())) {
+      return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
     }
     if (password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 });
-    }
-    // Sanitise: only alphanumeric + underscores in username
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return NextResponse.json(
-        { error: 'Username may only contain letters, numbers, and underscores.' },
-        { status: 400 },
-      );
     }
 
     // --- Check uniqueness ---
     const existing = await getUserByUsername(username);
     if (existing) {
-      return NextResponse.json({ error: 'That username is already taken.' }, { status: 409 });
+      return NextResponse.json({ error: 'An account with that email already exists.' }, { status: 409 });
     }
 
     // --- Hash password ---

@@ -28,6 +28,7 @@ interface AdminUser {
   kids: Kid[];
   stripeCustomerId?: string;
   hasPaymentMethod: boolean;
+  archived?: boolean;
 }
 
 interface AdminProduct extends Omit<ShopProduct, 'quantity'> {
@@ -264,6 +265,7 @@ export default function AdminPage() {
   const [resetPwLoading, setResetPwLoading] = useState(false);
   const [resetPwDone, setResetPwDone] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const loadUsers = async () => {
     setUsersLoading(true);
@@ -360,6 +362,8 @@ export default function AdminPage() {
   };
 
   const filteredUsers = users.filter((u) => {
+    if (!showArchived && u.archived) return false;
+    if (showArchived && !u.archived) return false;
     if (!userSearch.trim()) return true;
     const q = userSearch.toLowerCase();
     return (
@@ -710,14 +714,23 @@ export default function AdminPage() {
         {/* ── Users Section ─────────────────────────────────────────────── */}
         {activeSection === 'users' && (
           <div>
-            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
               <input
                 type="text"
-                placeholder="Search by username, parent name, or kid name…"
+                placeholder="Search by email, parent name, or kid name…"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 className="w-full max-w-md rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
+              <label className="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Show Archived
+              </label>
             </div>
 
             {usersLoading ? (
@@ -751,7 +764,7 @@ export default function AdminPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
-                            <p className="text-xs text-gray-500 truncate">@{user.username} · {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}</p>
+                            <p className="text-xs text-gray-500 truncate">@{user.username} · {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}{user.archived ? ' · Archived' : ''}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -902,6 +915,27 @@ export default function AdminPage() {
                                 className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                               >
                                 {userSavingId === user.id ? 'Saving…' : 'Save Changes'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const action = user.archived ? 'unarchive' : 'archive';
+                                  if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} this user?`)) return;
+                                  await fetch(`/api/admin/users/${user.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ archived: !user.archived }),
+                                  });
+                                  setUsers(users.map((u) => u.id === user.id ? { ...u, archived: !u.archived } : u));
+                                  setExpandedUserId(null);
+                                }}
+                                className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                                  user.archived
+                                    ? 'border-green-300 text-green-700 hover:bg-green-50'
+                                    : 'border-red-300 text-red-700 hover:bg-red-50'
+                                }`}
+                              >
+                                {user.archived ? 'Unarchive' : 'Archive'}
                               </button>
                             </div>
                           </div>

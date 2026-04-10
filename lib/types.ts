@@ -33,6 +33,7 @@ export interface User {
   stripeCustomerId?: string;      // Stripe Customer ID (cus_xxx)
   stripePaymentMethodId?: string; // Saved default payment method (pm_xxx)
   purchases?: Purchase[];
+  archived?: boolean;
   createdAt: string;
   updatedAt: string;
 }

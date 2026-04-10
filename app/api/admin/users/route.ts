@@ -18,7 +18,7 @@ export async function GET() {
     .sort({ createdAt: -1 })
     .toArray();
 
-  const users: PublicUser[] = (docs as unknown as Omit<User, 'passwordHash'>[]).map((u) => ({
+  const users: (PublicUser & { archived?: boolean })[] = (docs as unknown as Omit<User, 'passwordHash'>[]).map((u) => ({
     id: u.id,
     username: u.username,
     parentName: u.parentName,
@@ -27,6 +27,7 @@ export async function GET() {
     stripeCustomerId: u.stripeCustomerId,
     hasPaymentMethod: !!u.stripePaymentMethodId,
     purchases: u.purchases ?? [],
+    archived: u.archived,
   }));
 
   return NextResponse.json({ users });
