@@ -71,6 +71,24 @@ const ClassesPage: React.FC = () => {
       </ul>
     </div>
 
+    {/* Homeschool Plus */}
+    <div className="bg-white p-8 rounded-xl shadow hover:shadow-xl transition duration-300 border-t-4 border-purple-600 md:col-span-3">
+      <div className="text-sm font-bold uppercase tracking-wider text-purple-600 mb-1">All Tiers</div>
+      <h3 className="text-2xl font-bold text-black mb-1">Homeschool Plus</h3>
+      <p className="text-sm text-gray-500 mb-4">Guides Students Through All Tiers</p>
+      <p className="text-gray-700 mb-4">
+        A revolutionary collaboration between martial arts schools, K&ndash;12 education, and advanced coursework &mdash; with direct parent involvement. Small, community block-sized groups building the leaders of tomorrow.
+      </p>
+      <a
+        href="https://homeschool-plus.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block mt-2 text-purple-600 font-semibold hover:underline"
+      >
+        Learn more at homeschool-plus.com &rarr;
+      </a>
+    </div>
+
   </div>
 </section>
 
@@ -133,6 +151,11 @@ const ClassesPage: React.FC = () => {
     <div className="bg-gray-800 p-6 rounded-xl">
       <h4 className="text-lg font-bold text-red-400 mb-3">Ages 6+</h4>
       <p className="text-gray-300"><strong className="text-white">Mon, Wed &amp; Fri:</strong> 5:30 - 6:30 PM</p>
+    </div>
+
+    <div className="bg-gray-800 p-6 rounded-xl">
+      <h4 className="text-lg font-bold text-red-400 mb-3">Adult &amp; Family</h4>
+      <p className="text-gray-300"><strong className="text-white">Mon, Wed &amp; Fri:</strong> 6:30 - 7:30 PM</p>
     </div>
 
     <div className="bg-gray-800 p-6 rounded-xl">
