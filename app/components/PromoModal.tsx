@@ -26,6 +26,7 @@ interface PromoData {
     imageSrc: string;
     active: boolean;
     products?: PromoProduct[];
+    notesPlaceholder?: string;
 }
 
 /* ── Stripe payment form ──────────────────────────────────────────────────── */
@@ -93,6 +94,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
     const [step, setStep] = useState<'info' | 'pay' | 'done'>('info');
     const [checkoutError, setCheckoutError] = useState('');
     const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [customerNotes, setCustomerNotes] = useState('');
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => { setMounted(true); }, []);
@@ -114,6 +116,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
         setSelectedProductId(null);
         setCustomerName('');
         setCustomerEmail('');
+        setCustomerNotes('');
         setClientSecret(null);
         setStep('info');
         setCheckoutError('');
@@ -146,6 +149,7 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                     name: customerName.trim(),
                     email: customerEmail.trim(),
                     productId: selectedProductId || undefined,
+                    notes: customerNotes.trim() || undefined,
                 }),
             });
             const data = await res.json();
@@ -288,6 +292,13 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                                 placeholder="Your email"
                                 value={customerEmail}
                                 onChange={e => setCustomerEmail(e.target.value)}
+                                className="w-full border rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            />
+                            <textarea
+                                placeholder={promo.notesPlaceholder || 'Any special requests or notes?'}
+                                value={customerNotes}
+                                onChange={e => setCustomerNotes(e.target.value)}
+                                rows={3}
                                 className="w-full border rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                             />
                         </div>

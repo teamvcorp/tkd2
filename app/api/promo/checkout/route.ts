@@ -10,11 +10,12 @@ export async function POST(request: Request) {
   try {
     assertStripeKey();
 
-    const { quantity, name, email, productId } = (await request.json()) as {
+    const { quantity, name, email, productId, notes } = (await request.json()) as {
       quantity: number;
       name: string;
       email: string;
       productId?: string;  // optional: buy a specific product instead of main promo
+      notes?: string;      // optional customer notes / special requests
     };
 
     if (!name?.trim() || !email?.trim()) {
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
         quantity: String(qty),
         customerName: name.trim(),
         customerEmail: email.trim(),
+        ...(notes?.trim() ? { customerNotes: notes.trim() } : {}),
       },
     });
 

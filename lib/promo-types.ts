@@ -20,6 +20,7 @@ export interface Promo {
   active: boolean;
   updatedAt: string;          // ISO datetime
   products?: PromoProduct[];  // optional additional items
+  notesPlaceholder?: string;  // custom placeholder for customer notes textarea
 }
 
 export function formatPromoPrice(cents: number): string {

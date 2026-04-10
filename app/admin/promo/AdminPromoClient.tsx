@@ -21,6 +21,7 @@ interface Promo {
   active: boolean;
   updatedAt: string;
   products?: PromoProduct[];
+  notesPlaceholder?: string;
 }
 
 export default function AdminPromoClient() {
@@ -40,6 +41,7 @@ export default function AdminPromoClient() {
   const [updatedAt, setUpdatedAt] = useState('');
   const [products, setProducts] = useState<PromoProduct[]>([]);
   const [productPrices, setProductPrices] = useState<Record<string, string>>({});
+  const [notesPlaceholder, setNotesPlaceholder] = useState('');
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +65,7 @@ export default function AdminPromoClient() {
         setImageSrc(p.imageSrc);
         setUpdatedAt(p.updatedAt);
         setProducts(p.products ?? []);
+        setNotesPlaceholder(p.notesPlaceholder ?? '');
         const pp: Record<string, string> = {};
         for (const prod of p.products ?? []) {
           pp[prod.productId] = prod.price ? (prod.price / 100).toFixed(2) : '';
@@ -109,6 +112,7 @@ export default function AdminPromoClient() {
           stripePriceId: stripePriceId.trim(),
           active,
           products,
+          notesPlaceholder: notesPlaceholder.trim(),
         }),
       });
       const data = await res.json();
@@ -270,6 +274,21 @@ export default function AdminPromoClient() {
             <label htmlFor="active" className="text-sm font-medium text-gray-700">
               Promo is active
             </label>
+          </div>
+
+          {/* Notes Placeholder */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Customer Notes Placeholder
+            </label>
+            <input
+              type="text"
+              value={notesPlaceholder}
+              onChange={(e) => setNotesPlaceholder(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Any special requests or notes?"
+            />
+            <p className="text-xs text-gray-400 mt-1">Placeholder text shown in the customer notes field on the promo page.</p>
           </div>
 
           {/* Image Upload */}

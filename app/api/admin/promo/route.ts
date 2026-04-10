@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     active: body.active ?? true,
     updatedAt: new Date().toISOString(),
     products: body.products ?? existing?.products ?? [],
+    notesPlaceholder: body.notesPlaceholder ?? existing?.notesPlaceholder ?? '',
   };
 
   await upsertPromo(promo);

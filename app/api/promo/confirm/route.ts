@@ -40,6 +40,11 @@ export async function POST(request: Request) {
     const promoDescription = meta.promoDescription || 'Promo';
     const qty = meta.quantity || '1';
     const amount = (pi.amount / 100).toFixed(2);
+    const customerNotes = meta.customerNotes || '';
+
+    const notesRow = customerNotes
+      ? `<tr><td style="padding:6px 0;color:#6b7280">Notes</td><td style="padding:6px 0">${customerNotes.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>`
+      : '';
 
     const html = `
       <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
@@ -50,6 +55,7 @@ export async function POST(request: Request) {
           <tr><td style="padding:6px 0;color:#6b7280">Promo</td><td style="padding:6px 0;font-weight:600">${promoDescription}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280">Quantity</td><td style="padding:6px 0">${qty}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280">Amount Charged</td><td style="padding:6px 0;font-weight:600;color:#16a34a">$${amount}</td></tr>
+          ${notesRow}
           <tr><td style="padding:6px 0;color:#6b7280">Order Date</td><td style="padding:6px 0">${new Date().toLocaleString()}</td></tr>
           <tr><td style="padding:6px 0;color:#6b7280">Stripe PI</td><td style="padding:6px 0;font-size:12px;color:#9ca3af">${pi.id}</td></tr>
         </table>
