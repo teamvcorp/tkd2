@@ -93,6 +93,23 @@ export default function AdminPromoClient() {
     }
   }
 
+  function resetForm() {
+    setDescription('');
+    setPrice('');
+    setQuantity('');
+    setStripeProductId('');
+    setStripePriceId('');
+    setActive(true);
+    setImageSrc('');
+    setUpdatedAt('');
+    setProducts([]);
+    setProductPrices({});
+    setNotesPlaceholder('');
+    setError('');
+    setSuccess('New promo — fill in the details and click Save.');
+    setTimeout(() => setSuccess(''), 4000);
+  }
+
   function loadPastPromo(idx: number) {
     const p = pastPromos[idx];
     if (!p) return;
@@ -207,9 +224,18 @@ export default function AdminPromoClient() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Current Promo</h1>
-          <a href="/admin" className="text-sm text-blue-600 hover:underline">
-            ← Back to Admin
-          </a>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="text-sm bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 font-medium"
+            >
+              + New Promo
+            </button>
+            <a href="/admin" className="text-sm text-blue-600 hover:underline">
+              ← Back to Admin
+            </a>
+          </div>
         </div>
 
         {error && (
