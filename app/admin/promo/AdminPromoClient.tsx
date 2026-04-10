@@ -42,11 +42,14 @@ export default function AdminPromoClient() {
   const [products, setProducts] = useState<PromoProduct[]>([]);
   const [productPrices, setProductPrices] = useState<Record<string, string>>({});
   const [notesPlaceholder, setNotesPlaceholder] = useState('');
+  const [pastPromos, setPastPromos] = useState<Promo[]>([]);
+  const [loadingArchive, setLoadingArchive] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPromo();
+    fetchArchive();
   }, []);
 
   async function fetchPromo() {
@@ -77,6 +80,38 @@ export default function AdminPromoClient() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchArchive() {
+    setLoadingArchive(true);
+    try {
+      const res = await fetch('/api/admin/promo/archive');
+      const data = await res.json();
+      if (data.promos) setPastPromos(data.promos);
+    } catch { /* ignore */ } finally {
+      setLoadingArchive(false);
+    }
+  }
+
+  function loadPastPromo(idx: number) {
+    const p = pastPromos[idx];
+    if (!p) return;
+    setDescription(p.description);
+    setPrice((p.price / 100).toFixed(2));
+    setQuantity(String(p.quantity));
+    setStripeProductId(p.stripeProductId);
+    setStripePriceId(p.stripePriceId);
+    setActive(p.active);
+    setImageSrc(p.imageSrc);
+    setProducts(p.products ?? []);
+    setNotesPlaceholder(p.notesPlaceholder ?? '');
+    const pp: Record<string, string> = {};
+    for (const prod of p.products ?? []) {
+      pp[prod.productId] = prod.price ? (prod.price / 100).toFixed(2) : '';
+    }
+    setProductPrices(pp);
+    setSuccess('Past promo loaded — make edits and click Save.');
+    setTimeout(() => setSuccess(''), 4000);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -123,6 +158,7 @@ export default function AdminPromoClient() {
       setUpdatedAt(data.promo.updatedAt);
       setSuccess('Promo saved!');
       setTimeout(() => setSuccess(''), 3000);
+      fetchArchive();
     } catch {
       setError('Network error.');
     } finally {
@@ -184,6 +220,36 @@ export default function AdminPromoClient() {
         {success && (
           <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 mb-4">
             {success}
+          </div>
+        )}
+
+        {/* Quick Change — load a past promo */}
+        {pastPromos.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Quick Change — Load a Past Promo
+            </label>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const idx = parseInt(e.target.value, 10);
+                if (!isNaN(idx)) loadPastPromo(idx);
+                e.target.value = '';
+              }}
+              className="w-full border rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="" disabled>
+                {loadingArchive ? 'Loading…' : 'Select a past promo…'}
+              </option>
+              {pastPromos.map((p, i) => (
+                <option key={p.id} value={i}>
+                  {p.description.slice(0, 60)}{p.description.length > 60 ? '…' : ''} — ${(p.price / 100).toFixed(2)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Selecting a past promo fills the form below. Click &quot;Save Promo&quot; to apply it.
+            </p>
           </div>
         )}
 

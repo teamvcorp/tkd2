@@ -11,6 +11,7 @@ export { formatPromoPrice } from './promo-types';
 
 const DB = process.env.MONGODB_DATABASE ?? 'tkd';
 const col = () => client.db(DB).collection('promo');
+const archiveCol = () => client.db(DB).collection('promo_archive');
 
 export async function getPromo(): Promise<Promo | null> {
   noStore();
@@ -31,4 +32,24 @@ export async function updatePromo(
   patch: Partial<Promo>,
 ): Promise<void> {
   await col().updateOne({ id }, { $set: patch });
+}
+
+/** Save a promo snapshot into the archive (upsert by description to avoid duplicates). */
+export async function archivePromo(promo: Promo): Promise<void> {
+  await archiveCol().updateOne(
+    { description: promo.description },
+    { $set: { ...promo, archivedAt: new Date().toISOString() } },
+    { upsert: true },
+  );
+}
+
+/** List all archived promos, most recent first. */
+export async function listPromoArchive(): Promise<Promo[]> {
+  noStore();
+  const docs = await archiveCol()
+    .find({}, { projection: { _id: 0 } })
+    .sort({ archivedAt: -1 })
+    .limit(50)
+    .toArray();
+  return docs as unknown as Promo[];
 }

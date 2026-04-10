@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
-import { getPromo, upsertPromo, updatePromo } from '@/lib/promo';
+import { getPromo, upsertPromo, updatePromo, archivePromo } from '@/lib/promo';
 import type { Promo } from '@/lib/promo';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
   };
 
   await upsertPromo(promo);
+  await archivePromo(promo);
   return NextResponse.json({ promo });
 }
 
