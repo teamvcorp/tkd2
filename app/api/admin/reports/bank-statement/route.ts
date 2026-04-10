@@ -23,6 +23,40 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Fetch account info + balance transactions in parallel
+    const [account, balance] = await Promise.all([
+      stripe.accounts.retrieve(),
+      stripe.balance.retrieve(),
+    ]);
+
+    // Try to get connected bank account (external account for payouts)
+    let bankInfo: {
+      bankName: string | null;
+      last4: string | null;
+      routingNumber: string | null;
+      accountHolderName: string | null;
+      currency: string | null;
+    } | null = null;
+
+    try {
+      const externalAccounts = await stripe.accounts.listExternalAccounts(
+        account.id,
+        { object: 'bank_account', limit: 1 },
+      );
+      const bank = externalAccounts.data[0];
+      if (bank && bank.object === 'bank_account') {
+        bankInfo = {
+          bankName: bank.bank_name ?? null,
+          last4: bank.last4 ?? null,
+          routingNumber: bank.routing_number ?? null,
+          accountHolderName: bank.account_holder_name ?? null,
+          currency: bank.currency ?? null,
+        };
+      }
+    } catch {
+      // External accounts may not be available for all account types
+    }
+
     const transactions: {
       id: string;
       type: string;
@@ -66,6 +100,17 @@ export async function GET(req: NextRequest) {
       totalNet,
       currency: transactions[0]?.currency ?? 'usd',
       transactions,
+      stripeAccount: {
+        id: account.id,
+        businessName: account.settings?.dashboard?.display_name ?? account.business_profile?.name ?? null,
+        email: account.email ?? null,
+        country: account.country ?? null,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      },
+      bankInfo,
+      availableBalance: balance.available.map(b => ({ amount: b.amount, currency: b.currency })),
+      pendingBalance: balance.pending.map(b => ({ amount: b.amount, currency: b.currency })),
     });
   } catch (err) {
     return NextResponse.json({ ok: false, error: stripeErrMsg(err) }, { status: 500 });

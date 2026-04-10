@@ -48,6 +48,23 @@ interface BankStatementData {
   totalNet: number
   currency: string
   transactions: BalanceTxn[]
+  stripeAccount?: {
+    id: string
+    businessName: string | null
+    email: string | null
+    country: string | null
+    chargesEnabled: boolean
+    payoutsEnabled: boolean
+  }
+  bankInfo?: {
+    bankName: string | null
+    last4: string | null
+    routingNumber: string | null
+    accountHolderName: string | null
+    currency: string | null
+  } | null
+  availableBalance?: { amount: number; currency: string }[]
+  pendingBalance?: { amount: number; currency: string }[]
   error?: string
 }
 
@@ -299,6 +316,71 @@ export default function AdminReportClient() {
             <p className="text-sm text-gray-600">
               Taekwondo of Storm Lake &mdash; Generated {new Date().toLocaleDateString()}
             </p>
+          </div>
+
+          {/* Stripe Account & Bank Info Header */}
+          <div className="bg-white rounded-lg shadow print:shadow-none p-6 print:p-0 mb-6 print:mb-4">
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              {/* Stripe logo + account info */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  {/* Stripe logo SVG */}
+                  <svg viewBox="0 0 60 25" xmlns="http://www.w3.org/2000/svg" width="80" height="34" className="text-[#635BFF]">
+                    <path fill="currentColor" d="M59.64 14.28h-8.06c.19 1.93 1.6 2.55 3.2 2.55 1.64 0 2.96-.37 4.05-.95v3.32a12.56 12.56 0 0 1-4.56.85c-4.05 0-6.83-2.11-6.83-7.07 0-4.26 2.32-7.13 6.15-7.13 3.78 0 6.06 2.86 6.06 7.07v1.36zm-4.12-5.45c-1.1 0-2.04.78-2.2 2.55h4.32c-.04-1.5-.72-2.55-2.12-2.55zM40.95 20.05c-1.44 0-2.32-.6-2.9-1.04l-.02 4.63-4.12.87V6.25h3.56l.18 1.05A4.67 4.67 0 0 1 41 5.97c3.17 0 5.37 3.11 5.37 7.05 0 4.53-2.32 7.03-5.42 7.03zm-.8-10.36c-.97 0-1.6.42-2.12 1.08l.02 5.54c.5.6 1.14 1.02 2.1 1.02 1.68 0 2.63-1.85 2.63-3.84 0-1.94-.97-3.8-2.63-3.8zM28.24 5.57h4.13v14.44h-4.13V5.57zm0-4.7L32.37 0v3.36l-4.13.87V.87zm-4.32 9.35v9.79H19.8V6.25h3.5l.24 1.56A5.02 5.02 0 0 1 27.63 6v3.86c-.46-.1-2.64-.32-3.71 1.36zM14.54 20.05c-2.04 0-3.34-.72-4.33-1.47l-.02 4.63-4.12.87V10.15h-.02V6.27h3.58l.16.96c.97-.87 2.27-1.38 3.82-1.38 3.22 0 5.48 3.11 5.48 7.05 0 4.53-2.37 7.15-4.55 7.15zm-.94-10.38c-.97 0-1.56.34-2.14 1.08l.02 5.54c.6.66 1.16 1.02 2.12 1.02 1.61 0 2.63-1.85 2.63-3.84 0-1.94-1.02-3.8-2.63-3.8zM2.57 11.44c0-.7.6-1.02 1.56-1.02 1.4 0 3.15.42 4.54 1.2V7.98C7.14 7.37 5.63 7.1 4.13 7.1 1.66 7.1 0 8.43 0 10.63c0 4.15 5.74 3.5 5.74 5.28 0 .85-.74 1.11-1.76 1.11-1.52 0-3.47-.63-5.02-1.47l-.02 3.71c1.7.74 3.42 1.06 5.02 1.06 2.56 0 4.32-1.26 4.32-3.53-.02-4.47-5.71-3.7-5.71-5.35z"/>
+                  </svg>
+                </div>
+                <div className="text-sm">
+                  {bankStatement.stripeAccount && (
+                    <>
+                      <p className="font-semibold text-gray-900 text-base">
+                        {bankStatement.stripeAccount.businessName || 'Stripe Account'}
+                      </p>
+                      {bankStatement.stripeAccount.email && (
+                        <p className="text-gray-600">{bankStatement.stripeAccount.email}</p>
+                      )}
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        Account: {bankStatement.stripeAccount.id}
+                        {bankStatement.stripeAccount.country && ` · ${bankStatement.stripeAccount.country}`}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bank info */}
+              <div className="text-sm text-right">
+                {bankStatement.bankInfo && (
+                  <>
+                    <p className="font-semibold text-gray-900">
+                      {bankStatement.bankInfo.bankName || 'Bank Account'}
+                    </p>
+                    {bankStatement.bankInfo.accountHolderName && (
+                      <p className="text-gray-600">{bankStatement.bankInfo.accountHolderName}</p>
+                    )}
+                    {bankStatement.bankInfo.last4 && (
+                      <p className="text-gray-600">
+                        Account ending in ••{bankStatement.bankInfo.last4}
+                      </p>
+                    )}
+                    {bankStatement.bankInfo.routingNumber && (
+                      <p className="text-gray-500 text-xs">
+                        Routing: {bankStatement.bankInfo.routingNumber}
+                      </p>
+                    )}
+                  </>
+                )}
+                {bankStatement.availableBalance && bankStatement.availableBalance.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Available Balance</p>
+                    {bankStatement.availableBalance.map((b, i) => (
+                      <p key={i} className="font-semibold text-gray-900">
+                        {fmtMoney(b.amount, b.currency)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow print:shadow-none p-6 print:p-0">
