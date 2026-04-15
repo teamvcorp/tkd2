@@ -63,12 +63,44 @@ export async function POST(request: Request) {
       </div>
     `;
 
-    await resend.emails.send({
-      from: FROM_EMAIL,
-      to: ADMIN_EMAIL,
-      subject: `New Promo Order: ${promoDescription} (x${qty}) – ${customerName}`,
-      html,
-    });
+    // --- Customer confirmation email ---
+    const customerHtml = `
+      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
+        <h2 style="color:#16a34a;margin-top:0">Thank You for Your Order!</h2>
+        <p>Hi ${customerName},</p>
+        <p>Thank you for your order! We truly appreciate your support.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr><td style="padding:6px 0;color:#6b7280;width:40%">Item</td><td style="padding:6px 0;font-weight:600">${promoDescription}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Quantity</td><td style="padding:6px 0">${qty}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Amount Charged</td><td style="padding:6px 0;font-weight:600;color:#16a34a">$${amount}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Order Date</td><td style="padding:6px 0">${new Date().toLocaleString()}</td></tr>
+        </table>
+        <p>We will reach out to you when your order is ready for pickup from our school located at:</p>
+        <p style="font-weight:600;margin:8px 0">503 Lake Ave, Storm Lake, Iowa</p>
+        <p>If you have any questions in the meantime, feel free to contact us.</p>
+        <p style="margin-top:20px;font-size:12px;color:#9ca3af">Taekwondo of Storm Lake</p>
+      </div>
+    `;
+
+    // Send both emails in parallel
+    await Promise.all([
+      resend.emails.send({
+        from: FROM_EMAIL,
+        to: ADMIN_EMAIL,
+        subject: `New Promo Order: ${promoDescription} (x${qty}) – ${customerName}`,
+        html,
+      }),
+      ...(customerEmail !== 'Unknown'
+        ? [
+            resend.emails.send({
+              from: FROM_EMAIL,
+              to: customerEmail,
+              subject: `Order Confirmation – ${promoDescription}`,
+              html: customerHtml,
+            }),
+          ]
+        : []),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (err) {
