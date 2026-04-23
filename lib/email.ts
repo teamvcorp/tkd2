@@ -45,3 +45,92 @@ export async function sendOrderEmail({ parentName, username, purchase }: OrderEm
     html,
   });
 }
+
+// ─── Reminder Email ───────────────────────────────────────────────────────────
+
+const REMINDER_SUBJECTS: Record<string, string> = {
+  'finish-signup': 'Complete Your Enrollment – Taekwondo of Storm Lake',
+  'payment-due-soon': 'Upcoming Payment Reminder – Taekwondo of Storm Lake',
+  'payment-past-due': 'Action Required: Past Due Payment – Taekwondo of Storm Lake',
+};
+
+const REMINDER_BODIES: Record<string, (parentName: string) => string> = {
+  'finish-signup': (parentName) => `
+    <p>Dear ${parentName},</p>
+    <p>We noticed that your enrollment with <strong>Taekwondo of Storm Lake</strong> is not yet complete. We'd love to have your family join us on the mat!</p>
+    <p>Please log in to your account and finish setting up your profile, including adding your students and payment information, so we can get your training started.</p>
+    <p>If you have any questions or need assistance, don't hesitate to reply to this email — we're happy to help.</p>
+    <p>We look forward to seeing you in class!</p>
+  `,
+  'payment-due-soon': (parentName) => `
+    <p>Dear ${parentName},</p>
+    <p>This is a friendly reminder that a payment for your <strong>Taekwondo of Storm Lake</strong> enrollment will be coming due soon.</p>
+    <p>Please ensure your payment information is current in your account so there is no interruption to your training schedule.</p>
+    <p>If you have any questions regarding your account or payment, please don't hesitate to contact us.</p>
+    <p>Thank you for being part of our community!</p>
+  `,
+  'payment-past-due': (parentName) => `
+    <p>Dear ${parentName},</p>
+    <p>Our records indicate that a payment on your <strong>Taekwondo of Storm Lake</strong> account is currently past due.</p>
+    <p>To avoid any interruption to your training, please log in to your account and update your payment information at your earliest convenience.</p>
+    <p>If you believe this is an error, or if you'd like to discuss a payment arrangement, please reply to this email and we will be happy to assist you.</p>
+    <p>Thank you for your prompt attention to this matter.</p>
+  `,
+};
+
+interface ReminderEmailParams {
+  parentName: string;
+  userEmail: string;
+  reminderType: string;
+}
+
+export async function sendReminderEmail({ parentName, userEmail, reminderType }: ReminderEmailParams) {
+  const subject = REMINDER_SUBJECTS[reminderType];
+  const bodyFn = REMINDER_BODIES[reminderType];
+  if (!subject || !bodyFn) throw new Error('Invalid reminder type');
+
+  const bodyHtml = bodyFn(parentName);
+  const reminderLabel = {
+    'finish-signup': 'Finish Sign Up',
+    'payment-due-soon': 'Payment Coming Due',
+    'payment-past-due': 'Payment Past Due',
+  }[reminderType] ?? reminderType;
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">
+      <h2 style="color:#4f46e5;margin-top:0">Taekwondo of Storm Lake</h2>
+      ${bodyHtml}
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
+      <p style="font-size:12px;color:#9ca3af;margin:0">
+        Taekwondo of Storm Lake &middot; Storm Lake, IA<br/>
+        To unsubscribe or manage your communications, reply to this email.
+      </p>
+    </div>
+  `;
+
+  // Send to member
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: userEmail,
+    subject,
+    html,
+  });
+
+  // Confirmation copy to admin
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: ADMIN_EMAIL,
+    subject: `[Reminder Sent] ${reminderLabel} → ${parentName} (${userEmail})`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">
+        <h2 style="color:#4f46e5;margin-top:0">Reminder Confirmation</h2>
+        <p>A <strong>${reminderLabel}</strong> reminder was sent to:</p>
+        <ul>
+          <li><strong>Name:</strong> ${parentName}</li>
+          <li><strong>Email:</strong> ${userEmail}</li>
+        </ul>
+        <p style="font-size:12px;color:#9ca3af">Sent automatically from the admin dashboard.</p>
+      </div>
+    `,
+  });
+}

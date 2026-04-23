@@ -2,11 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, PencilIcon, KeyIcon, ChevronDownIcon, ChevronUpIcon, UserGroupIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, PencilIcon, KeyIcon, ChevronDownIcon, ChevronUpIcon, UserGroupIcon, ShoppingBagIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 import { PROGRAMS } from '@/lib/programs';
 import type { Kid } from '@/lib/types';
+
+const REMINDER_OPTIONS = [
+  { value: 'finish-signup', label: 'Remember to finish sign up' },
+  { value: 'payment-due-soon', label: 'Payment is coming due' },
+  { value: 'payment-past-due', label: 'Payment is past due' },
+];
 
 const BELT_OPTIONS = [
   { value: 'white', label: 'White' },
@@ -264,6 +270,10 @@ export default function AdminPage() {
   const [resetPwValue, setResetPwValue] = useState('');
   const [resetPwLoading, setResetPwLoading] = useState(false);
   const [resetPwDone, setResetPwDone] = useState<string | null>(null);
+  const [reminderUserId, setReminderUserId] = useState<string | null>(null);
+  const [reminderType, setReminderType] = useState('');
+  const [reminderLoading, setReminderLoading] = useState(false);
+  const [reminderDone, setReminderDone] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
@@ -306,6 +316,31 @@ export default function AdminPage() {
       setError('Failed to save user. Please try again.');
     } finally {
       setUserSavingId(null);
+    }
+  };
+
+  const handleSendReminder = async (userId: string) => {
+    if (!reminderType) return;
+    setReminderLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: reminderType }),
+      });
+      if (res.ok) {
+        setReminderDone(userId);
+        setReminderUserId(null);
+        setReminderType('');
+        setTimeout(() => setReminderDone(null), 3000);
+      } else {
+        const data = await res.json();
+        setError(data.error ?? 'Failed to send reminder.');
+      }
+    } catch {
+      setError('Failed to send reminder.');
+    } finally {
+      setReminderLoading(false);
     }
   };
 
@@ -827,6 +862,51 @@ export default function AdminPage() {
                                 className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                               >
                                 Reset Password
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Send Reminder */}
+                          <div className="mb-5 pb-4 border-b border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <EnvelopeIcon className="w-4 h-4 text-gray-500" />
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Send Reminder</span>
+                            </div>
+                            {reminderUserId === user.id ? (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <select
+                                  value={reminderType}
+                                  onChange={(e) => setReminderType(e.target.value)}
+                                  className="flex-1 min-w-[180px] rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                >
+                                  <option value="">Select a reminder…</option>
+                                  {REMINDER_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={reminderLoading || !reminderType}
+                                  onClick={() => handleSendReminder(user.id)}
+                                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                  {reminderLoading ? 'Sending…' : 'Send'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setReminderUserId(null); setReminderType(''); }}
+                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setReminderUserId(user.id)}
+                                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                              >
+                                {reminderDone === user.id ? '✓ Reminder Sent' : 'Send Reminder'}
                               </button>
                             )}
                           </div>
