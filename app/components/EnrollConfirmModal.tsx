@@ -11,7 +11,8 @@ interface Props {
   clientSecret: string;
   kidName: string;
   programName: string;
-  amount: number; // cents
+  amount: number; // cents — already the installment amount if using a plan
+  paymentPlan?: { installments: number; installmentAmount: number };
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -20,6 +21,7 @@ function EnrollForm({
   kidName,
   programName,
   amount,
+  paymentPlan,
   onSuccess,
   onClose,
 }: Omit<Props, 'clientSecret' | 'stripePromise'>) {
@@ -60,12 +62,25 @@ function EnrollForm({
       <div className="rounded-xl bg-indigo-50 border border-indigo-200 p-4 space-y-1">
         <p className="text-sm font-semibold text-indigo-900">{programName}</p>
         <p className="text-sm text-indigo-700">Enrolling: <span className="font-medium">{kidName}</span></p>
-        <p className="text-xl font-bold text-indigo-900">{formatPrice(amount)}</p>
+        {paymentPlan ? (
+          <>
+            <p className="text-xs text-indigo-600 font-medium">
+              Payment Plan — installment 1 of {paymentPlan.installments}
+            </p>
+            <p className="text-xl font-bold text-indigo-900">{formatPrice(amount)}</p>
+            <p className="text-xs text-gray-500">
+              {formatPrice(paymentPlan.installmentAmount)} × {paymentPlan.installments} installments
+            </p>
+          </>
+        ) : (
+          <p className="text-xl font-bold text-indigo-900">{formatPrice(amount)}</p>
+        )}
       </div>
 
       <p className="text-xs text-gray-500">
-        Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available.
-        You will only be charged after confirming below.
+        {paymentPlan
+          ? `You will be charged ${formatPrice(amount)} now. Remaining installments are billed per your plan.`
+          : 'Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available. You will only be charged after confirming below.'}
       </p>
 
       <PaymentElement />
@@ -102,6 +117,7 @@ export default function EnrollConfirmModal({
   kidName,
   programName,
   amount,
+  paymentPlan,
   onSuccess,
   onClose,
 }: Props) {
@@ -122,6 +138,7 @@ export default function EnrollConfirmModal({
             kidName={kidName}
             programName={programName}
             amount={amount}
+            paymentPlan={paymentPlan}
             onSuccess={onSuccess}
             onClose={onClose}
           />

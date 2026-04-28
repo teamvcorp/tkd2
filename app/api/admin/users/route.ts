@@ -27,6 +27,7 @@ export async function GET() {
     stripeCustomerId: u.stripeCustomerId,
     hasPaymentMethod: !!u.stripePaymentMethodId,
     purchases: u.purchases ?? [],
+    paymentPlanRequests: u.paymentPlanRequests ?? [],
     archived: u.archived,
   }));
 

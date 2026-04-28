@@ -6,7 +6,7 @@ import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, Penci
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 import { PROGRAMS } from '@/lib/programs';
-import type { Kid } from '@/lib/types';
+import type { Kid, PaymentPlanRequest } from '@/lib/types';
 
 const REMINDER_OPTIONS = [
   { value: 'finish-signup', label: 'Remember to finish sign up' },
@@ -35,6 +35,7 @@ interface AdminUser {
   stripeCustomerId?: string;
   hasPaymentMethod: boolean;
   archived?: boolean;
+  paymentPlanRequests?: PaymentPlanRequest[];
 }
 
 interface AdminProduct extends Omit<ShopProduct, 'quantity'> {
@@ -344,8 +345,78 @@ export default function AdminPage() {
     }
   };
 
-  const handleResetPassword = async (userId: string) => {
-    if (!resetPwValue || resetPwValue.length < 8) {
+  const [chargingPlanId, setChargingPlanId] = useState<string | null>(null);
+  const [chargeError, setChargeError] = useState<Record<string, string>>({});
+  const [chargeSuccess, setChargeSuccess] = useState<Record<string, boolean>>({});
+
+  const handleChargeInstallment = async (userId: string, requestId: string) => {
+    setChargingPlanId(requestId);
+    setChargeError((prev) => ({ ...prev, [requestId]: '' }));
+    setChargeSuccess((prev) => ({ ...prev, [requestId]: false }));
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/charge-installment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            if (u.id !== userId) return u;
+            return {
+              ...u,
+              paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
+                r.id === requestId
+                  ? { ...r, installmentsPaid: data.installmentsPaid }
+                  : r,
+              ),
+            };
+          }),
+        );
+        setChargeSuccess((prev) => ({ ...prev, [requestId]: true }));
+        setTimeout(() => setChargeSuccess((prev) => ({ ...prev, [requestId]: false })), 3000);
+      } else {
+        setChargeError((prev) => ({ ...prev, [requestId]: data.error ?? 'Charge failed.' }));
+      }
+    } catch {
+      setChargeError((prev) => ({ ...prev, [requestId]: 'Something went wrong.' }));
+    } finally {
+      setChargingPlanId(null);
+    }
+  };
+
+  const handlePlanReview = async (userId: string, requestId: string, status: 'approved' | 'rejected') => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/payment-plan`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, status }),
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            if (u.id !== userId) return u;
+            return {
+              ...u,
+              paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
+                r.id === requestId
+                  ? { ...r, status, reviewedAt: new Date().toISOString() }
+                  : r,
+              ),
+            };
+          }),
+        );
+      } else {
+        const data = await res.json();
+        setError(data.error ?? 'Failed to update payment plan.');
+      }
+    } catch {
+      setError('Failed to update payment plan.');
+    }
+  };
+
+  const handleResetPassword = async (userId: string) => {    if (!resetPwValue || resetPwValue.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
@@ -910,6 +981,92 @@ export default function AdminPage() {
                               </button>
                             )}
                           </div>
+
+                          {/* Payment Plans */}
+                          {(user.paymentPlanRequests ?? []).length > 0 && (
+                            <div className="mb-5 pb-4 border-b border-gray-100">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Plans</span>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                {(user.paymentPlanRequests ?? []).map((req) => {
+                                  const kid = user.kids[req.kidIndex];
+                                  const paid = req.installmentsPaid ?? 0;
+                                  const remaining = req.installments - paid;
+                                  return (
+                                    <div key={req.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 flex flex-col gap-2">
+                                      <div className="flex flex-wrap items-start justify-between gap-2">
+                                        <div>
+                                          <p className="text-sm font-medium text-gray-900">
+                                            {kid?.name ?? `Student #${req.kidIndex + 1}`}
+                                            <span className="ml-2 text-xs text-gray-500">{req.installments} payments · {paid}/{req.installments} paid</span>
+                                          </p>
+                                          <p className="text-xs text-gray-400 mt-0.5">
+                                            Requested {new Date(req.requestedAt).toLocaleDateString()}
+                                            {req.reviewedAt && ` · Reviewed ${new Date(req.reviewedAt).toLocaleDateString()}`}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {req.status === 'pending' ? (
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={() => handlePlanReview(user.id, req.id, 'approved')}
+                                                className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500"
+                                              >
+                                                Approve
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handlePlanReview(user.id, req.id, 'rejected')}
+                                                className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                                              >
+                                                Reject
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                              req.status === 'approved'
+                                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                                : 'bg-red-50 text-red-700 border border-red-200'
+                                            }`}>
+                                              {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* Charge next installment */}
+                                      {req.status === 'approved' && remaining > 0 && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <button
+                                            type="button"
+                                            disabled={chargingPlanId === req.id}
+                                            onClick={() => handleChargeInstallment(user.id, req.id)}
+                                            className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                          >
+                                            {chargingPlanId === req.id
+                                              ? 'Charging…'
+                                              : `Charge Installment ${paid + 1} of ${req.installments}`}
+                                          </button>
+                                          {chargeSuccess[req.id] && (
+                                            <span className="text-xs text-green-600 flex items-center gap-1">
+                                              <CheckCircleIcon className="w-3.5 h-3.5" /> Charged successfully
+                                            </span>
+                                          )}
+                                          {chargeError[req.id] && (
+                                            <span className="text-xs text-red-600">{chargeError[req.id]}</span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {req.status === 'approved' && remaining === 0 && (
+                                        <p className="text-xs text-green-700 font-medium">All {req.installments} installments paid</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Kids editing */}
                           <div>

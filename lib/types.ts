@@ -1,3 +1,13 @@
+export interface PaymentPlanRequest {
+  id: string;
+  kidIndex: number;
+  installments: 3 | 6 | 12;
+  installmentsPaid: number;     // how many have been successfully charged
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;  // ISO
+  reviewedAt?: string;  // ISO
+}
+
 export interface Purchase {
   id: string;           // Stripe PaymentIntent ID
   productId: string;
@@ -33,6 +43,7 @@ export interface User {
   stripeCustomerId?: string;      // Stripe Customer ID (cus_xxx)
   stripePaymentMethodId?: string; // Saved default payment method (pm_xxx)
   purchases?: Purchase[];
+  paymentPlanRequests?: PaymentPlanRequest[];
   archived?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -47,4 +58,5 @@ export interface PublicUser {
   stripeCustomerId?: string;
   hasPaymentMethod: boolean;
   purchases?: Purchase[];
+  paymentPlanRequests?: PaymentPlanRequest[];
 }

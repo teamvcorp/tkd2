@@ -40,6 +40,7 @@ export async function GET() {
     stripeCustomerId: user.stripeCustomerId,
     hasPaymentMethod: !!user.stripePaymentMethodId,
     purchases: user.purchases ?? [],
+    paymentPlanRequests: user.paymentPlanRequests ?? [],
   };
 
   return NextResponse.json(publicUser);

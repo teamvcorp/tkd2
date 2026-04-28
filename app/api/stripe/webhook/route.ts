@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   if (type === 'payment_intent.succeeded' || type === 'payment_intent.payment_failed') {
     const pi = data.object as { metadata?: Record<string, string>; id: string };
-    const { username, kidIndex, type: paymentType } = pi.metadata ?? {};
+    const { username, kidIndex, type: paymentType, paymentPlan, planRequestId } = pi.metadata ?? {};
 
     if (paymentType === 'enrollment' && username && kidIndex != null) {
       const user = await getUserByUsername(username);
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         const idx = Number(kidIndex);
         const kid = user.kids[idx];
         if (kid) {
-          let updatedKids;
+          let updatedKids = user.kids;
           if (type === 'payment_intent.succeeded' && kid.status !== 'active') {
             const expiresAt = new Date();
             expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -49,9 +49,23 @@ export async function POST(request: Request) {
               i === idx ? { ...k, status: 'inactive' as const } : k,
             );
           }
-          if (updatedKids) {
-            await updateUser({ ...user, kids: updatedKids });
+
+          // Bump installmentsPaid for plan payments (covers user's installment 1 via the Payment Element)
+          let updatedPlanRequests = user.paymentPlanRequests;
+          if (type === 'payment_intent.succeeded' && paymentPlan === 'true') {
+            const reqId = planRequestId ?? (user.paymentPlanRequests ?? []).find(
+              (r) => r.kidIndex === idx && r.status === 'approved',
+            )?.id;
+            if (reqId) {
+              updatedPlanRequests = (user.paymentPlanRequests ?? []).map((r) =>
+                r.id === reqId
+                  ? { ...r, installmentsPaid: (r.installmentsPaid ?? 0) + 1 }
+                  : r,
+              );
+            }
           }
+
+          await updateUser({ ...user, kids: updatedKids, paymentPlanRequests: updatedPlanRequests });
         }
       }
     }
