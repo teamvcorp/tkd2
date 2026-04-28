@@ -424,6 +424,7 @@ function KidCard({
   onEnroll,
   onEnrollWithPlan,
   onRequestPlan,
+  onPayInstallment,
   onAvatarUpdated,
 }: {
   kid: Kid;
@@ -434,6 +435,7 @@ function KidCard({
   onEnroll: (idx: number) => void;
   onEnrollWithPlan: (idx: number) => void;
   onRequestPlan: (idx: number) => void;
+  onPayInstallment: (idx: number, requestId: string) => void;
   onAvatarUpdated?: (url: string) => void;
 }) {
   const colors = beltColors[kid.rank] ?? beltColors.white;
@@ -579,6 +581,18 @@ function KidCard({
           <p className="text-xs text-emerald-700 text-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
             Plan approved — add a payment method to enroll
           </p>
+        )}
+
+        {/* Pay next installment for active enrolled kids */}
+        {status === 'active' && paymentPlanRequest?.status === 'approved' &&
+          hasPaymentMethod &&
+          (paymentPlanRequest.installmentsPaid ?? 0) < paymentPlanRequest.installments && (
+          <button
+            onClick={() => onPayInstallment(kidIndex, paymentPlanRequest.id)}
+            className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+          >
+            Pay Installment {(paymentPlanRequest.installmentsPaid ?? 0) + 1} of {paymentPlanRequest.installments}
+          </button>
         )}
 
         {avatarError && (
@@ -769,6 +783,9 @@ function FamilyDashboard({
 }) {
   const [enrolling, setEnrolling] = useState<number | null>(null);
   const [enrollError, setEnrollError] = useState('');
+  const [payInstallmentError, setPayInstallmentError] = useState<Record<number, string>>({});
+  const [payInstallmentSuccess, setPayInstallmentSuccess] = useState<Record<number, boolean>>({});
+  const [payingInstallment, setPayingInstallment] = useState<number | null>(null);
   const [enrollModal, setEnrollModal] = useState<{
     kidIndex: number;
     clientSecret: string;
@@ -902,6 +919,36 @@ function FamilyDashboard({
     );
     onKidsUpdated(updated);
     setEnrollModal(null);
+  };
+
+  const handlePayInstallment = async (kidIndex: number, requestId: string) => {
+    setPayingInstallment(kidIndex);
+    setPayInstallmentError((prev) => ({ ...prev, [kidIndex]: '' }));
+    setPayInstallmentSuccess((prev) => ({ ...prev, [kidIndex]: false }));
+    try {
+      const res = await fetch('/api/profile/pay-installment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPayInstallmentError((prev) => ({ ...prev, [kidIndex]: data.error ?? 'Payment failed.' }));
+      } else {
+        setPayInstallmentSuccess((prev) => ({ ...prev, [kidIndex]: true }));
+        // Update installmentsPaid locally
+        const updatedRequests = paymentPlanRequests.map((r) =>
+          r.id === requestId
+            ? { ...r, installmentsPaid: data.installmentsPaid }
+            : r,
+        );
+        onPaymentPlanRequestsUpdated(updatedRequests);
+      }
+    } catch {
+      setPayInstallmentError((prev) => ({ ...prev, [kidIndex]: 'Something went wrong. Please try again.' }));
+    } finally {
+      setPayingInstallment(null);
+    }
   };
 
   return (
@@ -1081,7 +1128,7 @@ function FamilyDashboard({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {kids.map((kid, i) => (
-              <div key={i} className={enrolling === i ? 'opacity-60 pointer-events-none' : ''}>
+              <div key={i} className={enrolling === i || payingInstallment === i ? 'opacity-60 pointer-events-none' : ''}>
                 <KidCard
                   kid={kid}
                   kidIndex={i}
@@ -1093,11 +1140,18 @@ function FamilyDashboard({
                   onEnroll={handleEnroll}
                   onEnrollWithPlan={handleEnrollWithPlan}
                   onRequestPlan={(idx) => { setPlanRequestKidIndex(idx); setPlanInstallments(3); setPlanRequestError(''); }}
+                  onPayInstallment={handlePayInstallment}
                   onAvatarUpdated={(url) => {
                     const updated = kids.map((k, j) => j === i ? { ...k, avatarUrl: url } : k);
                     onKidsUpdated(updated);
                   }}
                 />
+                {payInstallmentSuccess[i] && (
+                  <p className="mt-1.5 text-xs text-green-600 text-center">Payment successful!</p>
+                )}
+                {payInstallmentError[i] && (
+                  <p className="mt-1.5 text-xs text-red-600 text-center">{payInstallmentError[i]}</p>
+                )}
               </div>
             ))}
           </div>
