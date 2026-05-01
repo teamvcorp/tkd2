@@ -94,7 +94,7 @@ export async function POST(request: Request) {
                       $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
                       $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
                       $set: { updatedAt: new Date().toISOString() },
-                    },
+                    } as any,
                   );
                 }
               } else if (type === 'payment_intent.payment_failed') {
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
                     {
                       $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
                       $set: { updatedAt: new Date().toISOString() },
-                    },
+                    } as any,
                   );
                 }
               }

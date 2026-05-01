@@ -64,7 +64,7 @@ export async function POST(
       $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
       $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
       $set: { updatedAt: new Date().toISOString() },
-    },
+    } as any,
   );
 
   return NextResponse.json({
