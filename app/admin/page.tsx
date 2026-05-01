@@ -941,17 +941,14 @@ export default function AdminPage() {
                                 const prog = PROGRAMS.find((p) => p.id === k?.program);
                                 return prog ? sum + remaining * Math.round(prog.pricePerYear / req.installments) : sum;
                               }, 0);
-                              const nextAmt = (() => {
-                                for (const req of user.paymentPlanRequests ?? []) {
-                                  if (req.status !== 'approved') continue;
-                                  const paid2 = req.installmentsPaid ?? 0;
-                                  if (paid2 >= req.installments) continue;
-                                  const k = user.kids[req.kidIndex];
-                                  const prog = PROGRAMS.find((p) => p.id === k?.program);
-                                  if (prog) return Math.round(prog.pricePerYear / req.installments);
-                                }
-                                return 0;
-                              })();
+                              const nextAmt = (user.paymentPlanRequests ?? []).reduce((sum, req) => {
+                                if (req.status !== 'approved') return sum;
+                                const paid2 = req.installmentsPaid ?? 0;
+                                if (paid2 >= req.installments) return sum;
+                                const k = user.kids[req.kidIndex];
+                                const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                return prog ? sum + Math.round(prog.pricePerYear / req.installments) : sum;
+                              }, 0);
                               if (outstanding <= 0) return null;
                               return (
                                 <p className="text-xs text-amber-600 font-medium">
@@ -1087,16 +1084,13 @@ export default function AdminPage() {
                                   const prog = PROGRAMS.find((p) => p.id === k?.program);
                                   return prog ? sum + remaining * Math.round(prog.pricePerYear / req.installments) : sum;
                                 }, 0);
-                                const nextCharge = (() => {
-                                  for (const req of approved) {
-                                    const paid2 = req.installmentsPaid ?? 0;
-                                    if (paid2 >= req.installments) continue;
-                                    const k = user.kids[req.kidIndex];
-                                    const prog = PROGRAMS.find((p) => p.id === k?.program);
-                                    if (prog) return Math.round(prog.pricePerYear / req.installments);
-                                  }
-                                  return 0;
-                                })();
+                                const nextCharge = approved.reduce((sum, req) => {
+                                  const paid2 = req.installmentsPaid ?? 0;
+                                  if (paid2 >= req.installments) return sum;
+                                  const k = user.kids[req.kidIndex];
+                                  const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                  return prog ? sum + Math.round(prog.pricePerYear / req.installments) : sum;
+                                }, 0);
                                 if (outstanding === 0 && pending.length === 0) return null;
                                 return (
                                   <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
