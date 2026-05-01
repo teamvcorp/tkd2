@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         { id: user.id, 'paymentPlanRequests.id': requestId },
         {
           $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
-          $push: { 'paymentPlanRequests.$.chargeHistory': record },
+          $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
           $set: { updatedAt: new Date().toISOString() },
         },
       );

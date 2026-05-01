@@ -92,7 +92,7 @@ export async function POST(request: Request) {
                     { username: username.toLowerCase().trim(), 'paymentPlanRequests.id': reqId },
                     {
                       $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
-                      $push: { 'paymentPlanRequests.$.chargeHistory': record },
+                      $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
                       $set: { updatedAt: new Date().toISOString() },
                     },
                   );
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
                   await dbCol.updateOne(
                     { username: username.toLowerCase().trim(), 'paymentPlanRequests.id': reqId },
                     {
-                      $push: { 'paymentPlanRequests.$.chargeHistory': record },
+                      $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
                       $set: { updatedAt: new Date().toISOString() },
                     },
                   );

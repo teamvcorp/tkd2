@@ -92,7 +92,7 @@ export async function POST(
         { id, 'paymentPlanRequests.id': requestId },
         {
           $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
-          $push: { 'paymentPlanRequests.$.chargeHistory': record },
+          $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
           $set: { updatedAt: new Date().toISOString() },
         },
       );
@@ -119,7 +119,7 @@ export async function POST(
     await col().updateOne(
       { id, 'paymentPlanRequests.id': requestId },
       {
-        $push: { 'paymentPlanRequests.$.chargeHistory': requiresActionRecord },
+        $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [requiresActionRecord] } },
         $set: { updatedAt: new Date().toISOString() },
       },
     );
@@ -144,7 +144,7 @@ export async function POST(
     await col().updateOne(
       { id, 'paymentPlanRequests.id': requestId },
       {
-        $push: { 'paymentPlanRequests.$.chargeHistory': failRecord },
+        $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [failRecord] } },
         $set: { updatedAt: new Date().toISOString() },
       },
     ).catch(() => {/* best-effort */});
