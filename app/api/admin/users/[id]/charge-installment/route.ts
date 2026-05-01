@@ -3,7 +3,7 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { stripe, assertStripeKey, stripeErrMsg } from '@/lib/stripe';
 import client from '@/lib/mongodb';
 import { getProgramById } from '@/lib/programs';
-import type { User } from '@/lib/types';
+import type { User, InstallmentRecord } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,11 +80,19 @@ export async function POST(
     });
 
     if (paymentIntent.status === 'succeeded') {
-      // Increment installmentsPaid in DB
+      const record: InstallmentRecord = {
+        installmentNumber,
+        amount: installmentAmount,
+        method: 'stripe',
+        status: 'succeeded',
+        stripePaymentIntentId: paymentIntent.id,
+        chargedAt: new Date().toISOString(),
+      };
       await col().updateOne(
         { id, 'paymentPlanRequests.id': requestId },
         {
           $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
+          $push: { 'paymentPlanRequests.$.chargeHistory': record },
           $set: { updatedAt: new Date().toISOString() },
         },
       );
@@ -94,18 +102,52 @@ export async function POST(
         installmentNumber,
         installmentsPaid: installmentNumber,
         installments: planRequest.installments,
+        record,
       });
     }
 
-    // Requires action (3DS etc.) — return status for admin to see
+    // Requires action (3DS etc.) — log it and return status for admin to see
+    const requiresActionRecord: InstallmentRecord = {
+      installmentNumber,
+      amount: installmentAmount,
+      method: 'stripe',
+      status: 'requires_action',
+      stripePaymentIntentId: paymentIntent.id,
+      chargedAt: new Date().toISOString(),
+      failureMessage: 'Payment requires additional authentication by the customer',
+    };
+    await col().updateOne(
+      { id, 'paymentPlanRequests.id': requestId },
+      {
+        $push: { 'paymentPlanRequests.$.chargeHistory': requiresActionRecord },
+        $set: { updatedAt: new Date().toISOString() },
+      },
+    );
     return NextResponse.json({
       success: false,
       status: paymentIntent.status,
       error: 'Payment requires additional authentication by the customer',
+      record: requiresActionRecord,
     }, { status: 402 });
   } catch (err) {
     const msg = stripeErrMsg(err);
     console.error('charge-installment error:', msg, err);
+    // Record the failure in history
+    const failRecord: InstallmentRecord = {
+      installmentNumber,
+      amount: installmentAmount,
+      method: 'stripe',
+      status: 'failed',
+      chargedAt: new Date().toISOString(),
+      failureMessage: msg,
+    };
+    await col().updateOne(
+      { id, 'paymentPlanRequests.id': requestId },
+      {
+        $push: { 'paymentPlanRequests.$.chargeHistory': failRecord },
+        $set: { updatedAt: new Date().toISOString() },
+      },
+    ).catch(() => {/* best-effort */});
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

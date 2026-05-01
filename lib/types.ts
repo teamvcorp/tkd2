@@ -1,3 +1,14 @@
+export interface InstallmentRecord {
+  installmentNumber: number;
+  amount: number;                  // in cents
+  method: 'stripe' | 'cash';
+  status: 'succeeded' | 'failed' | 'requires_action';
+  stripePaymentIntentId?: string;
+  failureMessage?: string;
+  chargedAt: string;               // ISO
+  note?: string;
+}
+
 export interface PaymentPlanRequest {
   id: string;
   kidIndex: number;
@@ -6,6 +17,7 @@ export interface PaymentPlanRequest {
   status: 'pending' | 'approved' | 'rejected';
   requestedAt: string;  // ISO
   reviewedAt?: string;  // ISO
+  chargeHistory?: InstallmentRecord[];
 }
 
 export interface Purchase {

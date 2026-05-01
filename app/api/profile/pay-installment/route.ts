@@ -4,6 +4,7 @@ import { getUserByUsername } from '@/lib/userStore';
 import { stripe, assertStripeKey, stripeErrMsg } from '@/lib/stripe';
 import client from '@/lib/mongodb';
 import { getProgramById } from '@/lib/programs';
+import type { InstallmentRecord } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,10 +79,19 @@ export async function POST(request: Request) {
     });
 
     if (paymentIntent.status === 'succeeded') {
+      const record: InstallmentRecord = {
+        installmentNumber,
+        amount: installmentAmount,
+        method: 'stripe',
+        status: 'succeeded',
+        stripePaymentIntentId: paymentIntent.id,
+        chargedAt: new Date().toISOString(),
+      };
       await col().updateOne(
         { id: user.id, 'paymentPlanRequests.id': requestId },
         {
           $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
+          $push: { 'paymentPlanRequests.$.chargeHistory': record },
           $set: { updatedAt: new Date().toISOString() },
         },
       );

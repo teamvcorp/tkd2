@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { getUserByUsername, updateUser } from '@/lib/userStore';
+import client from '@/lib/mongodb';
+import type { InstallmentRecord } from '@/lib/types';
 
 /**
  * Stripe webhook handler.
@@ -26,8 +28,13 @@ export async function POST(request: Request) {
   const { type, data } = event;
 
   if (type === 'payment_intent.succeeded' || type === 'payment_intent.payment_failed') {
-    const pi = data.object as { metadata?: Record<string, string>; id: string };
-    const { username, kidIndex, type: paymentType, paymentPlan, planRequestId } = pi.metadata ?? {};
+    const pi = data.object as {
+      id: string;
+      amount?: number;
+      metadata?: Record<string, string>;
+      last_payment_error?: { message?: string };
+    };
+    const { username, kidIndex, type: paymentType, paymentPlan, planRequestId, installmentNumber } = pi.metadata ?? {};
 
     if (paymentType === 'enrollment' && username && kidIndex != null) {
       const user = await getUserByUsername(username);
@@ -50,22 +57,73 @@ export async function POST(request: Request) {
             );
           }
 
-          // Bump installmentsPaid for plan payments (covers user's installment 1 via the Payment Element)
-          let updatedPlanRequests = user.paymentPlanRequests;
-          if (type === 'payment_intent.succeeded' && paymentPlan === 'true') {
+          // Use the current paymentPlanRequests (not a mapped copy) so replaceOne
+          // does not overwrite chargeHistory written by the API routes.
+          await updateUser({ ...user, kids: updatedKids, paymentPlanRequests: user.paymentPlanRequests });
+
+          // Handle plan charge history AFTER the replaceOne so our $push wins.
+          if (paymentPlan === 'true') {
+            const DB = process.env.MONGODB_DATABASE ?? 'tkd';
+            const dbCol = client.db(DB).collection('users');
             const reqId = planRequestId ?? (user.paymentPlanRequests ?? []).find(
               (r) => r.kidIndex === idx && r.status === 'approved',
             )?.id;
+
             if (reqId) {
-              updatedPlanRequests = (user.paymentPlanRequests ?? []).map((r) =>
-                r.id === reqId
-                  ? { ...r, installmentsPaid: (r.installmentsPaid ?? 0) + 1 }
-                  : r,
-              );
+              const planReq = (user.paymentPlanRequests ?? []).find((r) => r.id === reqId);
+
+              if (type === 'payment_intent.succeeded') {
+                // Dedup: if already recorded by the API route, skip
+                const alreadyRecorded = (planReq?.chargeHistory ?? []).some(
+                  (r) => r.stripePaymentIntentId === pi.id && r.status === 'succeeded',
+                );
+                if (!alreadyRecorded) {
+                  // 3DS completion path: API route did not increment or record history
+                  const instNum = Number(installmentNumber ?? (planReq?.installmentsPaid ?? 0) + 1);
+                  const record: InstallmentRecord = {
+                    installmentNumber: instNum,
+                    amount: pi.amount ?? 0,
+                    method: 'stripe',
+                    status: 'succeeded',
+                    stripePaymentIntentId: pi.id,
+                    chargedAt: new Date().toISOString(),
+                  };
+                  await dbCol.updateOne(
+                    { username: username.toLowerCase().trim(), 'paymentPlanRequests.id': reqId },
+                    {
+                      $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
+                      $push: { 'paymentPlanRequests.$.chargeHistory': record },
+                      $set: { updatedAt: new Date().toISOString() },
+                    },
+                  );
+                }
+              } else if (type === 'payment_intent.payment_failed') {
+                // Dedup: only record once per payment intent id
+                const alreadyRecorded = (planReq?.chargeHistory ?? []).some(
+                  (r) => r.stripePaymentIntentId === pi.id,
+                );
+                if (!alreadyRecorded) {
+                  const instNum = Number(installmentNumber ?? (planReq?.installmentsPaid ?? 0) + 1);
+                  const record: InstallmentRecord = {
+                    installmentNumber: instNum,
+                    amount: pi.amount ?? 0,
+                    method: 'stripe',
+                    status: 'failed',
+                    stripePaymentIntentId: pi.id,
+                    failureMessage: pi.last_payment_error?.message,
+                    chargedAt: new Date().toISOString(),
+                  };
+                  await dbCol.updateOne(
+                    { username: username.toLowerCase().trim(), 'paymentPlanRequests.id': reqId },
+                    {
+                      $push: { 'paymentPlanRequests.$.chargeHistory': record },
+                      $set: { updatedAt: new Date().toISOString() },
+                    },
+                  );
+                }
+              }
             }
           }
-
-          await updateUser({ ...user, kids: updatedKids, paymentPlanRequests: updatedPlanRequests });
         }
       }
     }

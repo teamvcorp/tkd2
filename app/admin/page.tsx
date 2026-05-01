@@ -6,7 +6,7 @@ import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, Penci
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 import { PROGRAMS } from '@/lib/programs';
-import type { Kid, PaymentPlanRequest } from '@/lib/types';
+import type { Kid, PaymentPlanRequest, InstallmentRecord } from '@/lib/types';
 
 const REMINDER_OPTIONS = [
   { value: 'finish-signup', label: 'Remember to finish sign up' },
@@ -349,6 +349,17 @@ export default function AdminPage() {
   const [chargeError, setChargeError] = useState<Record<string, string>>({});
   const [chargeSuccess, setChargeSuccess] = useState<Record<string, boolean>>({});
 
+  const [cashCreditModal, setCashCreditModal] = useState<{
+    userId: string;
+    requestId: string;
+    installmentNumber: number;
+    amount: number;
+  } | null>(null);
+  const [cashNote, setCashNote] = useState('');
+  const [creditingPlanId, setCreditingPlanId] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState<Record<string, string>>({});
+  const [creditSuccess, setCreditSuccess] = useState<Record<string, boolean>>({});
+
   const handleChargeInstallment = async (userId: string, requestId: string) => {
     setChargingPlanId(requestId);
     setChargeError((prev) => ({ ...prev, [requestId]: '' }));
@@ -368,7 +379,13 @@ export default function AdminPage() {
               ...u,
               paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
                 r.id === requestId
-                  ? { ...r, installmentsPaid: data.installmentsPaid }
+                  ? {
+                      ...r,
+                      installmentsPaid: data.installmentsPaid,
+                      chargeHistory: data.record
+                        ? [...(r.chargeHistory ?? []), data.record as InstallmentRecord]
+                        : r.chargeHistory,
+                    }
                   : r,
               ),
             };
@@ -383,6 +400,50 @@ export default function AdminPage() {
       setChargeError((prev) => ({ ...prev, [requestId]: 'Something went wrong.' }));
     } finally {
       setChargingPlanId(null);
+    }
+  };
+
+  const handleCashCredit = async () => {
+    if (!cashCreditModal) return;
+    const { userId, requestId } = cashCreditModal;
+    setCreditingPlanId(requestId);
+    setCreditError((prev) => ({ ...prev, [requestId]: '' }));
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/cash-installment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, note: cashNote.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            if (u.id !== userId) return u;
+            return {
+              ...u,
+              paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
+                r.id === requestId
+                  ? {
+                      ...r,
+                      installmentsPaid: data.installmentsPaid,
+                      chargeHistory: [...(r.chargeHistory ?? []), data.record as InstallmentRecord],
+                    }
+                  : r,
+              ),
+            };
+          }),
+        );
+        setCreditSuccess((prev) => ({ ...prev, [requestId]: true }));
+        setCashCreditModal(null);
+        setCashNote('');
+        setTimeout(() => setCreditSuccess((prev) => ({ ...prev, [requestId]: false })), 3000);
+      } else {
+        setCreditError((prev) => ({ ...prev, [requestId]: data.error ?? 'Credit failed.' }));
+      }
+    } catch {
+      setCreditError((prev) => ({ ...prev, [requestId]: 'Something went wrong.' }));
+    } finally {
+      setCreditingPlanId(null);
     }
   };
 
@@ -1035,31 +1096,81 @@ export default function AdminPage() {
                                           )}
                                         </div>
                                       </div>
-                                      {/* Charge next installment */}
+                                      {/* Charge next installment + cash credit */}
                                       {req.status === 'approved' && remaining > 0 && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <button
-                                            type="button"
-                                            disabled={chargingPlanId === req.id}
-                                            onClick={() => handleChargeInstallment(user.id, req.id)}
-                                            className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-                                          >
-                                            {chargingPlanId === req.id
-                                              ? 'Charging…'
-                                              : `Charge Installment ${paid + 1} of ${req.installments}`}
-                                          </button>
+                                        <div className="flex flex-col gap-1.5">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <button
+                                              type="button"
+                                              disabled={chargingPlanId === req.id}
+                                              onClick={() => handleChargeInstallment(user.id, req.id)}
+                                              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                            >
+                                              {chargingPlanId === req.id
+                                                ? 'Charging…'
+                                                : `Charge Installment ${paid + 1} of ${req.installments}`}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={creditingPlanId === req.id}
+                                              onClick={() => {
+                                                const kid2 = user.kids[req.kidIndex];
+                                                const prog = PROGRAMS.find((p) => p.id === kid2?.program);
+                                                const amt = prog ? Math.round(prog.pricePerYear / req.installments) : 0;
+                                                setCashCreditModal({ userId: user.id, requestId: req.id, installmentNumber: paid + 1, amount: amt });
+                                                setCashNote('');
+                                              }}
+                                              className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                            >
+                                              Credit Cash Payment
+                                            </button>
+                                          </div>
                                           {chargeSuccess[req.id] && (
                                             <span className="text-xs text-green-600 flex items-center gap-1">
                                               <CheckCircleIcon className="w-3.5 h-3.5" /> Charged successfully
                                             </span>
                                           )}
+                                          {creditSuccess[req.id] && (
+                                            <span className="text-xs text-green-600 flex items-center gap-1">
+                                              <CheckCircleIcon className="w-3.5 h-3.5" /> Cash payment credited
+                                            </span>
+                                          )}
                                           {chargeError[req.id] && (
                                             <span className="text-xs text-red-600">{chargeError[req.id]}</span>
+                                          )}
+                                          {creditError[req.id] && (
+                                            <span className="text-xs text-red-600">{creditError[req.id]}</span>
                                           )}
                                         </div>
                                       )}
                                       {req.status === 'approved' && remaining === 0 && (
                                         <p className="text-xs text-green-700 font-medium">All {req.installments} installments paid</p>
+                                      )}
+                                      {/* Charge history */}
+                                      {(req.chargeHistory ?? []).length > 0 && (
+                                        <div className="mt-2 border-t border-gray-100 pt-2">
+                                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Charge History</p>
+                                          <div className="flex flex-col gap-1">
+                                            {(req.chargeHistory ?? []).map((entry, hi) => (
+                                              <div key={hi} className={`flex flex-wrap items-start justify-between gap-x-3 text-xs rounded px-2 py-1 ${
+                                                entry.status === 'succeeded' ? 'bg-green-50 text-green-800' :
+                                                entry.status === 'failed' ? 'bg-red-50 text-red-800' :
+                                                'bg-amber-50 text-amber-800'
+                                              }`}>
+                                                <span className="font-medium">
+                                                  #{entry.installmentNumber} &middot; {entry.method === 'cash' ? 'Cash' : 'Card'} &middot; ${(entry.amount / 100).toFixed(2)}
+                                                </span>
+                                                <span className="text-gray-500">{new Date(entry.chargedAt).toLocaleDateString()}</span>
+                                                {entry.status === 'failed' && entry.failureMessage && (
+                                                  <span className="w-full text-red-600 mt-0.5">{entry.failureMessage}</span>
+                                                )}
+                                                {entry.note && (
+                                                  <span className="w-full text-gray-500 italic mt-0.5">Note: {entry.note}</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
                                       )}
                                     </div>
                                   );
@@ -1281,6 +1392,54 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Credit Modal */}
+      {cashCreditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-900">Credit Cash Payment</h2>
+              <button type="button" onClick={() => setCashCreditModal(null)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Mark installment <strong>#{cashCreditModal.installmentNumber}</strong> as paid in cash
+              (<strong>${(cashCreditModal.amount / 100).toFixed(2)}</strong>). This cannot be undone.
+            </p>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Note (optional)</label>
+              <input
+                type="text"
+                value={cashNote}
+                onChange={(e) => setCashNote(e.target.value)}
+                placeholder="e.g. Paid at front desk"
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            {creditError[cashCreditModal.requestId] && (
+              <p className="text-sm text-red-600 mb-3">{creditError[cashCreditModal.requestId]}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCashCreditModal(null)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={creditingPlanId === cashCreditModal.requestId}
+                onClick={handleCashCredit}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {creditingPlanId === cashCreditModal.requestId ? 'Crediting…' : 'Confirm Cash Payment'}
+              </button>
+            </div>
           </div>
         </div>
       )}
