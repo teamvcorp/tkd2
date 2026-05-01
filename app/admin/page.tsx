@@ -932,6 +932,33 @@ export default function AdminPage() {
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
                             <p className="text-xs text-gray-500 truncate">@{user.username} · {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}{user.archived ? ' · Archived' : ''}</p>
+                            {(() => {
+                              const outstanding = (user.paymentPlanRequests ?? []).reduce((sum, req) => {
+                                if (req.status !== 'approved') return sum;
+                                const remaining = req.installments - (req.installmentsPaid ?? 0);
+                                if (remaining <= 0) return sum;
+                                const k = user.kids[req.kidIndex];
+                                const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                return prog ? sum + remaining * Math.round(prog.pricePerYear / req.installments) : sum;
+                              }, 0);
+                              const nextAmt = (() => {
+                                for (const req of user.paymentPlanRequests ?? []) {
+                                  if (req.status !== 'approved') continue;
+                                  const paid2 = req.installmentsPaid ?? 0;
+                                  if (paid2 >= req.installments) continue;
+                                  const k = user.kids[req.kidIndex];
+                                  const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                  if (prog) return Math.round(prog.pricePerYear / req.installments);
+                                }
+                                return 0;
+                              })();
+                              if (outstanding <= 0) return null;
+                              return (
+                                <p className="text-xs text-amber-600 font-medium">
+                                  Next charge: ${(nextAmt / 100).toFixed(2)} &nbsp;·&nbsp; Outstanding: ${(outstanding / 100).toFixed(2)}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1049,19 +1076,66 @@ export default function AdminPage() {
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Plans</span>
                               </div>
+                              {/* Parent-level summary */}
+                              {(() => {
+                                const approved = (user.paymentPlanRequests ?? []).filter((r) => r.status === 'approved');
+                                const pending = (user.paymentPlanRequests ?? []).filter((r) => r.status === 'pending');
+                                const outstanding = approved.reduce((sum, req) => {
+                                  const remaining = req.installments - (req.installmentsPaid ?? 0);
+                                  if (remaining <= 0) return sum;
+                                  const k = user.kids[req.kidIndex];
+                                  const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                  return prog ? sum + remaining * Math.round(prog.pricePerYear / req.installments) : sum;
+                                }, 0);
+                                const nextCharge = (() => {
+                                  for (const req of approved) {
+                                    const paid2 = req.installmentsPaid ?? 0;
+                                    if (paid2 >= req.installments) continue;
+                                    const k = user.kids[req.kidIndex];
+                                    const prog = PROGRAMS.find((p) => p.id === k?.program);
+                                    if (prog) return Math.round(prog.pricePerYear / req.installments);
+                                  }
+                                  return 0;
+                                })();
+                                if (outstanding === 0 && pending.length === 0) return null;
+                                return (
+                                  <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
+                                    {nextCharge > 0 && <span className="text-amber-800 font-semibold">Next charge: ${(nextCharge / 100).toFixed(2)}</span>}
+                                    {outstanding > 0 && <span className="text-amber-700">Total outstanding: ${(outstanding / 100).toFixed(2)}</span>}
+                                    {pending.length > 0 && <span className="text-gray-500">{pending.length} pending approval</span>}
+                                  </div>
+                                );
+                              })()}
                               <div className="flex flex-col gap-2">
                                 {(user.paymentPlanRequests ?? []).map((req) => {
                                   const kid = user.kids[req.kidIndex];
                                   const paid = req.installmentsPaid ?? 0;
                                   const remaining = req.installments - paid;
+                                  const prog = PROGRAMS.find((p) => p.id === kid?.program);
+                                  const installmentAmt = prog ? Math.round(prog.pricePerYear / req.installments) : 0;
+                                  const cashCount = (req.chargeHistory ?? []).filter((e) => e.method === 'cash' && e.status === 'succeeded').length;
+                                  const cardCount = (req.chargeHistory ?? []).filter((e) => e.method === 'stripe' && e.status === 'succeeded').length;
+                                  const remainingBalance = remaining * installmentAmt;
                                   return (
                                     <div key={req.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 flex flex-col gap-2">
                                       <div className="flex flex-wrap items-start justify-between gap-2">
                                         <div>
                                           <p className="text-sm font-medium text-gray-900">
                                             {kid?.name ?? `Student #${req.kidIndex + 1}`}
-                                            <span className="ml-2 text-xs text-gray-500">{req.installments} payments · {paid}/{req.installments} paid</span>
+                                            {prog && <span className="ml-2 text-xs font-normal text-gray-500">{prog.name}</span>}
                                           </p>
+                                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                            {installmentAmt > 0 && (
+                                              <span className="text-xs font-semibold text-gray-700">${(installmentAmt / 100).toFixed(2)} &times; {req.installments} payments</span>
+                                            )}
+                                            <span className="text-xs text-gray-500">
+                                              {paid}/{req.installments} paid
+                                              {(cashCount > 0 || cardCount > 0) && ` (${cashCount > 0 ? `${cashCount} cash` : ''}${cashCount > 0 && cardCount > 0 ? ', ' : ''}${cardCount > 0 ? `${cardCount} card` : ''})`}
+                                            </span>
+                                            {remaining > 0 && installmentAmt > 0 && (
+                                              <span className="text-xs text-amber-600 font-medium">Balance: ${(remainingBalance / 100).toFixed(2)}</span>
+                                            )}
+                                          </div>
                                           <p className="text-xs text-gray-400 mt-0.5">
                                             Requested {new Date(req.requestedAt).toLocaleDateString()}
                                             {req.reviewedAt && ` · Reviewed ${new Date(req.reviewedAt).toLocaleDateString()}`}
@@ -1108,7 +1182,7 @@ export default function AdminPage() {
                                             >
                                               {chargingPlanId === req.id
                                                 ? 'Charging…'
-                                                : `Charge Installment ${paid + 1} of ${req.installments}`}
+                                                : `Charge #${paid + 1} of ${req.installments}${installmentAmt > 0 ? ` · $${(installmentAmt / 100).toFixed(2)}` : ''}`}
                                             </button>
                                             <button
                                               type="button"
