@@ -426,6 +426,7 @@ function KidCard({
   onRequestPlan,
   onPayInstallment,
   onAvatarUpdated,
+  onDelete,
 }: {
   kid: Kid;
   kidIndex: number;
@@ -437,6 +438,7 @@ function KidCard({
   onRequestPlan: (idx: number) => void;
   onPayInstallment: (idx: number, requestId: string) => void;
   onAvatarUpdated?: (url: string) => void;
+  onDelete?: (idx: number) => void;
 }) {
   const colors = beltColors[kid.rank] ?? beltColors.white;
   const initials = kid.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -507,6 +509,9 @@ function KidCard({
           <span className="text-xs text-indigo-500 font-medium group-hover:underline">
             View Dashboard →
           </span>
+        )}
+        {status === 'pending' && (
+          <span className="text-xs text-gray-400">Not enrolled</span>
         )}
       </button>
 
@@ -601,6 +606,17 @@ function KidCard({
         {(status === 'pending' || status === 'inactive') && !hasPaymentMethod && !paymentPlanRequest && (
           <p className="text-xs text-gray-400 text-center">No payment method on file</p>
         )}
+        {status === 'pending' && onDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm(`Remove ${kid.name} from your account?`)) onDelete(kidIndex);
+            }}
+            className="block w-full text-center rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+          >
+            Remove Student
+          </button>
+        )}
       </div>
     </div>
   );
@@ -622,6 +638,15 @@ function SettingsModal({
   const [cardClientSecret, setCardClientSecret] = useState('');
   const [cardError, setCardError] = useState('');
   const [cardSuccess, setCardSuccess] = useState(false);
+  const [cardInfo, setCardInfo] = useState<{ brand: string; last4: string; expMonth: number; expYear: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !hasPaymentMethod) return;
+    fetch('/api/settings/payment')
+      .then((r) => r.json())
+      .then((d) => setCardInfo(d.card ?? null))
+      .catch(() => setCardInfo(null));
+  }, [isOpen, hasPaymentMethod]);
 
   if (!isOpen) return null;
 
@@ -706,6 +731,17 @@ function SettingsModal({
                       ? 'You have a card saved on file. Use the button below to replace it.'
                       : 'No payment method on file. Add one to enable purchases and enrollment.'}
                   </p>
+                  {hasPaymentMethod && cardInfo && (
+                    <div className="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                      <div className="text-2xl">
+                        {cardInfo.brand === 'visa' ? '💳' : cardInfo.brand === 'mastercard' ? '💳' : '💳'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 capitalize">{cardInfo.brand} ···· {cardInfo.last4}</p>
+                        <p className="text-xs text-gray-500">Expires {cardInfo.expMonth}/{cardInfo.expYear}</p>
+                      </div>
+                    </div>
+                  )}
                   {cardError && <p className="text-sm text-red-600">{cardError}</p>}
                   {cardClientSecret && stripePromise ? (
                     <Elements
@@ -826,6 +862,21 @@ function FamilyDashboard({
       setAddKidError('Something went wrong. Please try again.');
     } finally {
       setAddingKid(false);
+    }
+  };
+
+  const handleDeleteKid = async (kidIndex: number) => {
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kidIndex }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error ?? 'Could not remove student.'); return; }
+      onKidsUpdated(kids.filter((_, i) => i !== kidIndex));
+    } catch {
+      alert('Something went wrong. Please try again.');
     }
   };
 
@@ -1141,6 +1192,7 @@ function FamilyDashboard({
                   onEnrollWithPlan={handleEnrollWithPlan}
                   onRequestPlan={(idx) => { setPlanRequestKidIndex(idx); setPlanInstallments(3); setPlanRequestError(''); }}
                   onPayInstallment={handlePayInstallment}
+                  onDelete={handleDeleteKid}
                   onAvatarUpdated={(url) => {
                     const updated = kids.map((k, j) => j === i ? { ...k, avatarUrl: url } : k);
                     onKidsUpdated(updated);

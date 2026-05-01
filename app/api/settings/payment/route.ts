@@ -4,6 +4,36 @@ import { stripe } from '@/lib/stripe';
 import { getUserByUsername, updateUser } from '@/lib/userStore';
 
 /**
+ * GET – return saved card details (brand + last4) for the current user.
+ */
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const username =
+      (session.user as { username?: string }).username ?? session.user.email ?? '';
+
+    const user = await getUserByUsername(username);
+    if (!user || !user.stripePaymentMethodId) {
+      return NextResponse.json({ card: null });
+    }
+
+    const pm = await stripe.paymentMethods.retrieve(user.stripePaymentMethodId);
+    return NextResponse.json({
+      card: pm.card
+        ? { brand: pm.card.brand, last4: pm.card.last4, expMonth: pm.card.exp_month, expYear: pm.card.exp_year }
+        : null,
+    });
+  } catch (err) {
+    console.error('settings/payment GET error:', err);
+    return NextResponse.json({ card: null });
+  }
+}
+
+/**
  * POST – create a new SetupIntent for the user's existing Stripe customer
  *        so they can update their saved payment method.
  */

@@ -76,3 +76,41 @@ export async function PATCH(request: Request) {
   await updateUser({ ...user, kids: [...user.kids, newKid] });
   return NextResponse.json({ success: true, kid: newKid });
 }
+
+export async function DELETE(request: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const username =
+    (session.user as { username?: string }).username ?? session.user.email ?? '';
+
+  const user = await getUserByUsername(username);
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  const body = await request.json() as { kidIndex?: number };
+  const { kidIndex } = body;
+
+  if (typeof kidIndex !== 'number' || kidIndex < 0 || kidIndex >= user.kids.length) {
+    return NextResponse.json({ error: 'Invalid kidIndex' }, { status: 400 });
+  }
+
+  const kid = user.kids[kidIndex];
+  if (kid.status !== 'pending') {
+    return NextResponse.json({ error: 'Only students with no payment history can be removed.' }, { status: 403 });
+  }
+
+  const updatedKids = user.kids.filter((_, i) => i !== kidIndex);
+
+  // Remove any pending payment plan requests for this kid.
+  // Shift kidIndex references for kids that come after the deleted one.
+  const updatedRequests = (user.paymentPlanRequests ?? [])
+    .filter((r) => r.kidIndex !== kidIndex)
+    .map((r) => r.kidIndex > kidIndex ? { ...r, kidIndex: r.kidIndex - 1 } : r);
+
+  await updateUser({ ...user, kids: updatedKids, paymentPlanRequests: updatedRequests });
+  return NextResponse.json({ success: true });
+}
