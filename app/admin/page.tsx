@@ -349,6 +349,14 @@ export default function AdminPage() {
   const [chargeError, setChargeError] = useState<Record<string, string>>({});
   const [chargeSuccess, setChargeSuccess] = useState<Record<string, boolean>>({});
 
+  const [planReviewModal, setPlanReviewModal] = useState<{
+    userId: string;
+    requestId: string;
+    action: 'approved' | 'rejected';
+    installments: 3 | 6 | 12;
+  } | null>(null);
+  const [planReviewLoading, setPlanReviewLoading] = useState(false);
+
   const [cashCreditModal, setCashCreditModal] = useState<{
     userId: string;
     requestId: string;
@@ -447,12 +455,13 @@ export default function AdminPage() {
     }
   };
 
-  const handlePlanReview = async (userId: string, requestId: string, status: 'approved' | 'rejected') => {
+  const handlePlanReview = async (userId: string, requestId: string, status: 'approved' | 'rejected' | 'pending', installments?: 3 | 6 | 12) => {
+    setPlanReviewLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${userId}/payment-plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, status }),
+        body: JSON.stringify({ requestId, status, ...(installments !== undefined ? { installments } : {}) }),
       });
       if (res.ok) {
         setUsers((prev) =>
@@ -462,18 +471,21 @@ export default function AdminPage() {
               ...u,
               paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
                 r.id === requestId
-                  ? { ...r, status, reviewedAt: new Date().toISOString() }
+                  ? { ...r, status, reviewedAt: new Date().toISOString(), ...(installments !== undefined ? { installments } : {}) }
                   : r,
               ),
             };
           }),
         );
+        setPlanReviewModal(null);
       } else {
         const data = await res.json();
         setError(data.error ?? 'Failed to update payment plan.');
       }
     } catch {
       setError('Failed to update payment plan.');
+    } finally {
+      setPlanReviewLoading(false);
     }
   };
 
@@ -1140,27 +1152,38 @@ export default function AdminPage() {
                                             <>
                                               <button
                                                 type="button"
-                                                onClick={() => handlePlanReview(user.id, req.id, 'approved')}
+                                                onClick={() => setPlanReviewModal({ userId: user.id, requestId: req.id, action: 'approved', installments: req.installments })}
                                                 className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500"
                                               >
                                                 Approve
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => handlePlanReview(user.id, req.id, 'rejected')}
+                                                onClick={() => setPlanReviewModal({ userId: user.id, requestId: req.id, action: 'rejected', installments: req.installments })}
                                                 className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                                               >
                                                 Reject
                                               </button>
                                             </>
                                           ) : (
-                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                              req.status === 'approved'
-                                                ? 'bg-green-50 text-green-700 border border-green-200'
-                                                : 'bg-red-50 text-red-700 border border-red-200'
-                                            }`}>
-                                              {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                                req.status === 'approved'
+                                                  ? 'bg-green-50 text-green-700 border border-green-200'
+                                                  : 'bg-red-50 text-red-700 border border-red-200'
+                                              }`}>
+                                                {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                                              </span>
+                                              {req.status === 'rejected' && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handlePlanReview(user.id, req.id, 'pending')}
+                                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                                >
+                                                  Restore
+                                                </button>
+                                              )}
+                                            </div>
                                           )}
                                         </div>
                                       </div>
@@ -1460,6 +1483,55 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Review Modal */}
+      {planReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-900">
+                {planReviewModal.action === 'approved' ? 'Approve Payment Plan' : 'Reject Payment Plan'}
+              </h2>
+              <button type="button" onClick={() => setPlanReviewModal(null)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Number of Payments</label>
+              <select
+                value={planReviewModal.installments}
+                onChange={(e) => setPlanReviewModal((prev) => prev ? { ...prev, installments: Number(e.target.value) as 3 | 6 | 12 } : prev)}
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value={3}>3 payments</option>
+                <option value={6}>6 payments</option>
+                <option value={12}>12 payments</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPlanReviewModal(null)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={planReviewLoading}
+                onClick={() => handlePlanReview(planReviewModal.userId, planReviewModal.requestId, planReviewModal.action, planReviewModal.installments)}
+                className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
+                  planReviewModal.action === 'approved' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'
+                }`}
+              >
+                {planReviewLoading
+                  ? 'Saving…'
+                  : planReviewModal.action === 'approved' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
           </div>
         </div>
       )}

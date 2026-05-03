@@ -16,22 +16,29 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await request.json() as { requestId?: string; status?: string };
-  const { requestId, status } = body;
+  const body = await request.json() as { requestId?: string; status?: string; installments?: number };
+  const { requestId, status, installments } = body;
 
-  if (!requestId || !['approved', 'rejected'].includes(status ?? '')) {
+  if (!requestId || !['approved', 'rejected', 'pending'].includes(status ?? '')) {
     return NextResponse.json({ error: 'requestId and valid status required' }, { status: 400 });
+  }
+
+  if (installments !== undefined && ![3, 6, 12].includes(installments)) {
+    return NextResponse.json({ error: 'installments must be 3, 6, or 12' }, { status: 400 });
+  }
+
+  const setFields: Record<string, unknown> = {
+    'paymentPlanRequests.$.status': status,
+    'paymentPlanRequests.$.reviewedAt': new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (installments !== undefined) {
+    setFields['paymentPlanRequests.$.installments'] = installments;
   }
 
   const result = await col().updateOne(
     { id, 'paymentPlanRequests.id': requestId },
-    {
-      $set: {
-        'paymentPlanRequests.$.status': status,
-        'paymentPlanRequests.$.reviewedAt': new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    },
+    { $set: setFields },
   );
 
   if (result.matchedCount === 0) {
