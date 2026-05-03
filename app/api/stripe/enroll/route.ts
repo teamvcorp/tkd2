@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       amount: chargeAmount,
       programName: program.name,
       kidName: kid.name,
+      oneTimeFee: program.oneTimeFee ?? false,
       ...(installments !== undefined && { installments }),
     });
   } catch (err) {

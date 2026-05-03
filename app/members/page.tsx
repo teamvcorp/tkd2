@@ -336,7 +336,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                       <option value="">— Select a program —</option>
                       {PROGRAMS.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} · {p.description} · {formatPrice(p.pricePerYear)}
+                          {p.name} · {p.description} · {formatPrice(p.pricePerYear, p.oneTimeFee)}
                         </option>
                       ))}
                     </select>
@@ -542,7 +542,7 @@ function KidCard({
 
         {/* Program label */}
         {program && (
-          <p className="text-xs text-gray-500 truncate">{program.name} · {formatPrice(program.pricePerYear)}</p>
+          <p className="text-xs text-gray-500 truncate">{program.name} · {formatPrice(program.pricePerYear, program.oneTimeFee)}</p>
         )}
 
         {/* Enroll / Renew button */}
@@ -828,6 +828,7 @@ function FamilyDashboard({
     kidName: string;
     programName: string;
     amount: number;
+    oneTimeFee?: boolean;
     paymentPlan?: { installments: number; installmentAmount: number };
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -899,6 +900,7 @@ function FamilyDashboard({
           kidName: data.kidName,
           programName: data.programName,
           amount: data.amount,
+          oneTimeFee: data.oneTimeFee,
         });
       }
     } catch {
@@ -1054,6 +1056,7 @@ function FamilyDashboard({
             kidName={enrollModal.kidName}
             programName={enrollModal.programName}
             amount={enrollModal.amount}
+            oneTimeFee={enrollModal.oneTimeFee}
             paymentPlan={enrollModal.paymentPlan}
             onSuccess={handleEnrollSuccess}
             onClose={() => setEnrollModal(null)}
@@ -1103,7 +1106,7 @@ function FamilyDashboard({
                     className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                     <option value="">— Select a program —</option>
                     {PROGRAMS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} · {formatPrice(p.pricePerYear)}</option>
+                      <option key={p.id} value={p.id}>{p.name} · {formatPrice(p.pricePerYear, p.oneTimeFee)}</option>
                     ))}
                   </select>
                 </div>

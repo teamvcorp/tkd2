@@ -12,6 +12,7 @@ interface Props {
   kidName: string;
   programName: string;
   amount: number; // cents — already the installment amount if using a plan
+  oneTimeFee?: boolean;
   paymentPlan?: { installments: number; installmentAmount: number };
   onSuccess: () => void;
   onClose: () => void;
@@ -21,6 +22,7 @@ function EnrollForm({
   kidName,
   programName,
   amount,
+  oneTimeFee,
   paymentPlan,
   onSuccess,
   onClose,
@@ -67,19 +69,19 @@ function EnrollForm({
             <p className="text-xs text-indigo-600 font-medium">
               Payment Plan — installment 1 of {paymentPlan.installments}
             </p>
-            <p className="text-xl font-bold text-indigo-900">{formatPrice(amount)}</p>
+            <p className="text-xl font-bold text-indigo-900">{formatPrice(amount, oneTimeFee)}</p>
             <p className="text-xs text-gray-500">
               {formatPrice(paymentPlan.installmentAmount)} × {paymentPlan.installments} installments
             </p>
           </>
         ) : (
-          <p className="text-xl font-bold text-indigo-900">{formatPrice(amount)}</p>
+          <p className="text-xl font-bold text-indigo-900">{formatPrice(amount, oneTimeFee)}</p>
         )}
       </div>
 
       <p className="text-xs text-gray-500">
         {paymentPlan
-          ? `You will be charged ${formatPrice(amount)} now. Remaining installments are billed per your plan.`
+          ? `You will be charged ${formatPrice(amount, oneTimeFee)} now. Remaining installments are billed per your plan.`
           : 'Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available. You will only be charged after confirming below.'}
       </p>
 
@@ -117,6 +119,7 @@ export default function EnrollConfirmModal({
   kidName,
   programName,
   amount,
+  oneTimeFee,
   paymentPlan,
   onSuccess,
   onClose,
@@ -138,6 +141,7 @@ export default function EnrollConfirmModal({
             kidName={kidName}
             programName={programName}
             amount={amount}
+            oneTimeFee={oneTimeFee}
             paymentPlan={paymentPlan}
             onSuccess={onSuccess}
             onClose={onClose}
