@@ -58,12 +58,21 @@ export async function POST(
     ...(note?.trim() ? { note: note.trim() } : {}),
   };
 
+  // If this is the first installment, activate the kid
+  const activationFields: Record<string, string> = {};
+  if (installmentNumber === 1) {
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    activationFields[`kids.${planRequest.kidIndex}.status`] = 'active';
+    activationFields[`kids.${planRequest.kidIndex}.expiresAt`] = expiresAt.toISOString();
+  }
+
   await col().updateOne(
     { id, 'paymentPlanRequests.id': requestId },
     {
       $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
       $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
-      $set: { updatedAt: new Date().toISOString() },
+      $set: { updatedAt: new Date().toISOString(), ...activationFields },
     } as any,
   );
 
@@ -71,6 +80,7 @@ export async function POST(
     success: true,
     installmentNumber,
     installmentsPaid: installmentNumber,
+    activated: installmentNumber === 1,
     record,
   });
 }

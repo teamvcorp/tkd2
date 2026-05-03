@@ -574,7 +574,7 @@ function KidCard({
             Payment plan request was not approved
           </p>
         )}
-        {paymentPlanRequest?.status === 'approved' && hasPaymentMethod && program && (
+        {paymentPlanRequest?.status === 'approved' && hasPaymentMethod && program && (paymentPlanRequest.installmentsPaid ?? 0) === 0 && (
           <button
             onClick={() => onEnrollWithPlan(kidIndex)}
             className="block w-full text-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
