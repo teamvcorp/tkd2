@@ -14,7 +14,7 @@ interface Props {
   amount: number; // cents — already the installment amount if using a plan
   oneTimeFee?: boolean;
   paymentPlan?: { installments: number; installmentAmount: number };
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
   onClose: () => void;
 }
 
@@ -52,7 +52,7 @@ function EnrollForm({
     if (stripeError) {
       setError(stripeError.message ?? 'Payment failed. Please try again.');
     } else if (paymentIntent?.status === 'succeeded') {
-      onSuccess();
+      onSuccess(paymentIntent.id);
     }
     // Redirect-based methods (Klarna, etc.) navigate away — user returns via return_url
     // The webhook activates the kid on payment_intent.succeeded

@@ -961,17 +961,29 @@ function FamilyDashboard({
     }
   };
 
-  const handleEnrollSuccess = () => {
+  const handleEnrollSuccess = async (paymentIntentId: string) => {
     if (!enrollModal) return;
     const { kidIndex } = enrollModal;
-    // Optimistically mark as active; webhook will persist the change
+
+    // Optimistically update UI immediately
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     const updated = kids.map((k, i) =>
-      i === kidIndex ? { ...k, status: 'active' as const, expiresAt: expiresAt.toISOString() } : k,
+      i === kidIndex ? { ...k, status: 'active' as const, expiresAt: expiresAt.toISOString(), stripePaymentIntentId: paymentIntentId } : k,
     );
     onKidsUpdated(updated);
     setEnrollModal(null);
+
+    // Persist to DB — this is the primary write path (webhook is backup)
+    try {
+      await fetch('/api/profile/enrollment-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kidIndex, paymentIntentId }),
+      });
+    } catch {
+      // Non-fatal: webhook will catch it if this fails
+    }
   };
 
   const handlePayInstallment = async (kidIndex: number, requestId: string) => {
