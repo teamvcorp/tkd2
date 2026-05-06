@@ -5,6 +5,7 @@ export interface Program {
   stripeProductId: string; // Replace with real Stripe Product IDs
   pricePerYear: number;    // in cents USD
   oneTimeFee?: boolean;    // true if this is a one-time charge, not annual
+  durationYears?: number;  // fixed program duration before renewal is required
 }
 
 export const PROGRAMS: Program[] = [
@@ -46,10 +47,11 @@ export const PROGRAMS: Program[] = [
   {
     id: 'Black belt Program',
     name: 'Black Belt',
-    description: 'All ages · Best for 6+ students',
+    description: 'All ages · 5-year program · renewal required after 5 years',
     stripeProductId: 'prod_U9gDE8dgEvqYsC',
-    pricePerYear: 1000000, // $10,000 one-time
+    pricePerYear: 1000000, // $10,000 one-time (covers 5 years)
     oneTimeFee: true,
+    durationYears: 5,
   },
   {
     id: 'Homeschool Taekwondo Program',
@@ -64,7 +66,10 @@ export function getProgramById(id: string): Program | undefined {
   return PROGRAMS.find((p) => p.id === id);
 }
 
-export function formatPrice(cents: number, oneTimeFee?: boolean): string {
+export function formatPrice(cents: number, oneTimeFee?: boolean, durationYears?: number): string {
   const amount = `$${(cents / 100).toLocaleString()}`;
-  return oneTimeFee ? amount : `${amount}/yr`;
+  if (oneTimeFee) {
+    return durationYears ? `${amount} / ${durationYears} yrs` : amount;
+  }
+  return `${amount}/yr`;
 }

@@ -336,7 +336,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                       <option value="">— Select a program —</option>
                       {PROGRAMS.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} · {p.description} · {formatPrice(p.pricePerYear, p.oneTimeFee)}
+                          {p.name} · {p.description} · {formatPrice(p.pricePerYear, p.oneTimeFee, p.durationYears)}
                         </option>
                       ))}
                     </select>
@@ -542,7 +542,7 @@ function KidCard({
 
         {/* Program label */}
         {program && (
-          <p className="text-xs text-gray-500 truncate">{program.name} · {formatPrice(program.pricePerYear, program.oneTimeFee)}</p>
+          <p className="text-xs text-gray-500 truncate">{program.name} · {formatPrice(program.pricePerYear, program.oneTimeFee, program.durationYears)}</p>
         )}
 
         {/* Enroll / Renew button */}
@@ -1118,7 +1118,7 @@ function FamilyDashboard({
                     className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                     <option value="">— Select a program —</option>
                     {PROGRAMS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} · {formatPrice(p.pricePerYear, p.oneTimeFee)}</option>
+                      <option key={p.id} value={p.id}>{p.name} · {formatPrice(p.pricePerYear, p.oneTimeFee, p.durationYears)}</option>
                     ))}
                   </select>
                 </div>

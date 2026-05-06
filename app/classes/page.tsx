@@ -119,15 +119,17 @@ const ClassesPage: React.FC = () => {
     {/* Black Belt */}
     <div className="bg-black text-white p-8 rounded-xl shadow hover:shadow-xl transition duration-300 border-l-4 border-red-600">
       <h3 className="text-2xl font-bold mb-1">Black Belt Program</h3>
-      <p className="text-sm text-gray-400 mb-4">Black Belt</p>
+      <p className="text-sm text-gray-400 mb-1">Black Belt</p>
+      <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-4">5-Year Program &mdash; Renewal required after 5 years</p>
       <p className="text-gray-300 mb-4">
-        The solidification of all advanced principles. Students begin the detailed breakdown of each movement - <strong>perfecting the application and delivery</strong> of every Taekwondo skill.
+        The solidification of all advanced principles. Students begin the detailed breakdown of each movement - <strong>perfecting the application and delivery</strong> of every Taekwondo skill. This program covers a full <strong>5-year term</strong>; after completion, re-enrollment is required to continue.
       </p>
       <ul className="text-sm text-gray-400 space-y-1">
         <li>&#10003; Advanced principle mastery</li>
         <li>&#10003; Movement-by-movement breakdown</li>
         <li>&#10003; Perfected application &amp; delivery</li>
         <li>&#10003; Complete Taekwondo excellence</li>
+        <li>&#10003; Valid for 5 years &mdash; renewal required</li>
       </ul>
     </div>
 

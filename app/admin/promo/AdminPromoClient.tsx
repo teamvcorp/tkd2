@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { upload } from '@vercel/blob/client';
 
 interface PromoProduct {
   productId: string;
@@ -187,24 +188,47 @@ export default function AdminPromoClient() {
     const file = e.target.files?.[0];
     if (!file) return;
     setError('');
+
+    if (!file.type.startsWith('image/')) {
+      setError('File must be an image.');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be under 10 MB.');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('image', file);
-      const res = await fetch('/api/admin/promo/image', {
-        method: 'POST',
-        body: fd,
+      const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+      // Upload directly from the browser to Vercel Blob storage. This avoids
+      // the platform's ~4.5 MB serverless body limit that was causing 413s.
+      const blob = await upload(`promo-images/upload-${Date.now()}.${ext}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/admin/promo/image',
+        contentType: file.type,
       });
-      const data = await res.json();
+
+      // Persist the resulting URL on the active promo (also serves as the
+      // dev fallback for the onUploadCompleted webhook).
+      const res = await fetch('/api/admin/promo/image', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: blob.url }),
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'Image upload failed.');
+        setError(data.error || 'Failed to save image URL.');
         return;
       }
-      setImageSrc(data.url);
+
+      setImageSrc(blob.url);
       setSuccess('Image uploaded!');
       setTimeout(() => setSuccess(''), 3000);
-    } catch {
-      setError('Image upload error.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Image upload error.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -406,7 +430,7 @@ export default function AdminPromoClient() {
             {uploading && (
               <p className="text-sm text-gray-500 mt-1">Uploading…</p>
             )}
-            <p className="text-xs text-gray-400 mt-1">Max 5 MB. Save the promo first before uploading an image.</p>
+            <p className="text-xs text-gray-400 mt-1">Max 10 MB. Save the promo first before uploading an image.</p>
           </div>
 
           {/* ── Additional Products ── */}
