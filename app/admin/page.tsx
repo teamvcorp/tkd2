@@ -282,6 +282,24 @@ export default function AdminPage() {
   const [contactDraft, setContactDraft] = useState<{ parentName: string; parentAge: string; phone: string; username: string }>({ parentName: '', parentAge: '', phone: '', username: '' });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactSavedId, setContactSavedId] = useState<string | null>(null);
+  // Add-User flow (admin-initiated registration when a parent calls in / drops in)
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
+  const [addUserForm, setAddUserForm] = useState<{
+    username: string;
+    password: string;
+    parentName: string;
+    parentAge: string;
+    phone: string;
+    stripeCustomerId: string;
+    kids: { name: string; age: string; rank: string; program: string }[];
+  }>({
+    username: '', password: '', parentName: '', parentAge: '', phone: '', stripeCustomerId: '',
+    kids: [],
+  });
+  // Per-field validation errors. Keys: username, parentName, parentAge, phone, password.
+  const [addUserFieldErrors, setAddUserFieldErrors] = useState<Record<string, string>>({});
   const [userSearch, setUserSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [showPendingOnly, setShowPendingOnly] = useState(false);
@@ -336,6 +354,102 @@ export default function AdminPage() {
       username: u.username ?? '',
     });
     setContactEditUserId(u.id);
+  };
+
+  // ── Add User (admin-initiated) ─────────────────────────────────────────────
+  const resetAddUserForm = () => {
+    setAddUserForm({
+      username: '', password: '', parentName: '', parentAge: '', phone: '', stripeCustomerId: '',
+      kids: [],
+    });
+    setAddUserError('');
+    setAddUserFieldErrors({});
+  };
+
+  // Validate the Add-User form. Returns a map of field → message for any
+  // problems. Empty map means OK.
+  const validateAddUserForm = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    const email = addUserForm.username.trim();
+    if (!email) errs.username = 'Email is required.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.username = 'Enter a valid email address.';
+
+    if (!addUserForm.parentName.trim()) errs.parentName = 'Parent name is required.';
+
+    if (addUserForm.parentAge.trim() !== '') {
+      const n = Number(addUserForm.parentAge);
+      if (!Number.isFinite(n) || n < 0 || n > 120) errs.parentAge = 'Age must be 0–120.';
+    }
+
+    if (addUserForm.phone.trim() !== '') {
+      const digits = addUserForm.phone.replace(/\D/g, '');
+      if (digits.length < 7) errs.phone = 'Phone number is too short.';
+    }
+
+    if (addUserForm.password && addUserForm.password.length < 8) {
+      errs.password = 'Password must be at least 8 characters.';
+    }
+    return errs;
+  };
+
+  const addUserAddKid = () =>
+    setAddUserForm((f) => ({
+      ...f,
+      kids: [...f.kids, { name: '', age: '', rank: 'white', program: '' }],
+    }));
+
+  const addUserRemoveKid = (idx: number) =>
+    setAddUserForm((f) => ({ ...f, kids: f.kids.filter((_, i) => i !== idx) }));
+
+  const addUserUpdateKid = (idx: number, field: 'name' | 'age' | 'rank' | 'program', value: string) =>
+    setAddUserForm((f) => ({
+      ...f,
+      kids: f.kids.map((k, i) => (i === idx ? { ...k, [field]: value } : k)),
+    }));
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddUserError('');
+    const fieldErrs = validateAddUserForm();
+    setAddUserFieldErrors(fieldErrs);
+    if (Object.keys(fieldErrs).length > 0) {
+      setAddUserError('Please fix the highlighted fields below.');
+      return;
+    }
+    setAddUserLoading(true);
+    try {
+      const payload = {
+        username: addUserForm.username.trim(),
+        password: addUserForm.password || undefined,
+        parentName: addUserForm.parentName.trim(),
+        parentAge: addUserForm.parentAge === '' ? 0 : Number(addUserForm.parentAge),
+        phone: addUserForm.phone.trim(),
+        stripeCustomerId: addUserForm.stripeCustomerId.trim() || undefined,
+        kids: addUserForm.kids.map((k) => ({
+          name: k.name.trim(),
+          age: Number(k.age) || 0,
+          rank: k.rank,
+          program: k.program || undefined,
+        })),
+      };
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAddUserError(data.error ?? 'Failed to create user.');
+        return;
+      }
+      await loadUsers();
+      setShowAddUser(false);
+      resetAddUserForm();
+    } catch {
+      setAddUserError('Failed to create user. Please try again.');
+    } finally {
+      setAddUserLoading(false);
+    }
   };
 
   const handleSaveContact = async (userId: string) => {
@@ -1016,6 +1130,14 @@ export default function AdminPage() {
                 }`}
               >
                 {showPendingOnly ? '✓ Showing pending only' : `Pending follow-ups (${pendingCount})`}
+              </button>
+              <button
+                type="button"
+                onClick={() => { resetAddUserForm(); setShowAddUser(true); }}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Add User
               </button>
             </div>
 
@@ -1815,6 +1937,264 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Add User Modal — admin-initiated registration */}
+      {showAddUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form
+            onSubmit={handleCreateUser}
+            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">Add User</h2>
+              <button
+                type="button"
+                onClick={() => { setShowAddUser(false); resetAddUserForm(); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              <p className="text-xs text-gray-500">
+                Creates a pending-payment account. Leave the password blank to lock the account
+                (the parent can set a password via Reset Password later). If a Stripe customer
+                already exists for this person, paste their <code className="text-gray-700">cus_…</code> id
+                to link it.
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Fields marked <span className="text-red-500">*</span> are required.
+              </p>
+
+              {/* Parent contact */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+                  <input
+                    type="email"
+                    required
+                    value={addUserForm.username}
+                    onChange={(e) => {
+                      setAddUserForm({ ...addUserForm, username: e.target.value });
+                      if (addUserFieldErrors.username) {
+                        setAddUserFieldErrors((f) => { const n = { ...f }; delete n.username; return n; });
+                      }
+                    }}
+                    className={`w-full rounded border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 ${
+                      addUserFieldErrors.username
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    }`}
+                  />
+                  {addUserFieldErrors.username && (
+                    <p className="mt-1 text-[11px] text-red-600">{addUserFieldErrors.username}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={addUserForm.phone}
+                    onChange={(e) => {
+                      setAddUserForm({ ...addUserForm, phone: e.target.value });
+                      if (addUserFieldErrors.phone) {
+                        setAddUserFieldErrors((f) => { const n = { ...f }; delete n.phone; return n; });
+                      }
+                    }}
+                    className={`w-full rounded border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 ${
+                      addUserFieldErrors.phone
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    }`}
+                  />
+                  {addUserFieldErrors.phone && (
+                    <p className="mt-1 text-[11px] text-red-600">{addUserFieldErrors.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Parent name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={addUserForm.parentName}
+                    onChange={(e) => {
+                      setAddUserForm({ ...addUserForm, parentName: e.target.value });
+                      if (addUserFieldErrors.parentName) {
+                        setAddUserFieldErrors((f) => { const n = { ...f }; delete n.parentName; return n; });
+                      }
+                    }}
+                    className={`w-full rounded border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 ${
+                      addUserFieldErrors.parentName
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    }`}
+                  />
+                  {addUserFieldErrors.parentName && (
+                    <p className="mt-1 text-[11px] text-red-600">{addUserFieldErrors.parentName}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Parent age</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={addUserForm.parentAge}
+                    onChange={(e) => {
+                      setAddUserForm({ ...addUserForm, parentAge: e.target.value });
+                      if (addUserFieldErrors.parentAge) {
+                        setAddUserFieldErrors((f) => { const n = { ...f }; delete n.parentAge; return n; });
+                      }
+                    }}
+                    className={`w-full rounded border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 ${
+                      addUserFieldErrors.parentAge
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    }`}
+                  />
+                  {addUserFieldErrors.parentAge && (
+                    <p className="mt-1 text-[11px] text-red-600">{addUserFieldErrors.parentAge}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Account access */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Password (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Leave blank to lock account"
+                    value={addUserForm.password}
+                    onChange={(e) => {
+                      setAddUserForm({ ...addUserForm, password: e.target.value });
+                      if (addUserFieldErrors.password) {
+                        setAddUserFieldErrors((f) => { const n = { ...f }; delete n.password; return n; });
+                      }
+                    }}
+                    className={`w-full rounded border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 ${
+                      addUserFieldErrors.password
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    }`}
+                  />
+                  {addUserFieldErrors.password ? (
+                    <p className="mt-1 text-[11px] text-red-600">{addUserFieldErrors.password}</p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-gray-500">Min 8 chars if provided.</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Stripe Customer ID (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="cus_…"
+                    value={addUserForm.stripeCustomerId}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, stripeCustomerId: e.target.value })}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">Link an existing Stripe customer, or leave blank to create one.</p>
+                </div>
+              </div>
+
+              {/* Kids */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-medium text-gray-700">Kids / Students</label>
+                  <button
+                    type="button"
+                    onClick={addUserAddKid}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" />
+                    Add kid
+                  </button>
+                </div>
+                {addUserForm.kids.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No kids added yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {addUserForm.kids.map((k, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-start border border-gray-200 rounded p-2">
+                        <input
+                          type="text"
+                          placeholder="Name"
+                          value={k.name}
+                          onChange={(e) => addUserUpdateKid(idx, 'name', e.target.value)}
+                          className="col-span-4 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Age"
+                          min={0}
+                          value={k.age}
+                          onChange={(e) => addUserUpdateKid(idx, 'age', e.target.value)}
+                          className="col-span-2 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <select
+                          value={k.rank}
+                          onChange={(e) => addUserUpdateKid(idx, 'rank', e.target.value)}
+                          className="col-span-2 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="white">White</option>
+                          <option value="yellow">Yellow</option>
+                          <option value="orange">Orange</option>
+                          <option value="green">Green</option>
+                          <option value="blue">Blue</option>
+                          <option value="purple">Purple</option>
+                          <option value="brown">Brown</option>
+                          <option value="red">Red</option>
+                          <option value="black">Black</option>
+                        </select>
+                        <select
+                          value={k.program}
+                          onChange={(e) => addUserUpdateKid(idx, 'program', e.target.value)}
+                          className="col-span-3 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="">— Program —</option>
+                          {PROGRAMS.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => addUserRemoveKid(idx)}
+                          className="col-span-1 text-gray-400 hover:text-red-600 justify-self-end p-1.5"
+                          aria-label="Remove kid"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {addUserError && (
+                <p className="text-sm text-red-600">{addUserError}</p>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowAddUser(false); resetAddUserForm(); }}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addUserLoading}
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {addUserLoading ? 'Creating…' : 'Create User'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
