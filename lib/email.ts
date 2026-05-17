@@ -88,9 +88,13 @@ interface ReminderEmailParams {
   parentName: string;
   userEmail: string;
   reminderType: string;
+  /** When set for `finish-signup`, a credentials block is added to the email
+   *  with the user's login email and this one-time password. The caller is
+   *  responsible for hashing & persisting the same password on the user record. */
+  tempPassword?: string;
 }
 
-export async function sendReminderEmail({ parentName, userEmail, reminderType }: ReminderEmailParams) {
+export async function sendReminderEmail({ parentName, userEmail, reminderType, tempPassword }: ReminderEmailParams) {
   const subject = REMINDER_SUBJECTS[reminderType];
   const bodyFn = REMINDER_BODIES[reminderType];
   if (!subject || !bodyFn) throw new Error('Invalid reminder type');
@@ -102,10 +106,28 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType }:
     'payment-past-due': 'Payment Past Due',
   }[reminderType] ?? reminderType;
 
+  // Login URL: use NEXTAUTH_URL when set, else fall back to the production
+  // VERCEL_URL, else a relative link (better than nothing in dev).
+  const baseUrl = process.env.NEXTAUTH_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+  const loginUrl = `${baseUrl}/members`;
+
+  const credentialsBlock = (reminderType === 'finish-signup' && tempPassword)
+    ? `
+      <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:14px;margin-top:20px;font-size:14px;line-height:1.6;color:#312e81">
+        <p style="margin:0 0 8px;font-weight:600">Your temporary login</p>
+        <p style="margin:0 0 4px"><strong>Email:</strong> ${userEmail}</p>
+        <p style="margin:0 0 10px"><strong>Temporary password:</strong> <code style="background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #c7d2fe;font-size:15px">${tempPassword}</code></p>
+        <p style="margin:0 0 10px;font-size:13px">Use these to sign in, then change your password from your account page.</p>
+        <p style="margin:0"><a href="${loginUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:600">Log in &amp; finish enrollment</a></p>
+      </div>`
+    : '';
+
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">
       <h2 style="color:#4f46e5;margin-top:0">Taekwondo of Storm Lake</h2>
       ${bodyHtml}
+      ${credentialsBlock}
       <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-top:20px;font-size:14px;line-height:1.6">
         <p style="margin:0 0 6px;font-weight:600;color:#111827">Need help?</p>
         <p style="margin:0">

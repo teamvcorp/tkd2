@@ -1961,9 +1961,10 @@ export default function AdminPage() {
             <div className="px-6 py-5 space-y-5">
               <p className="text-xs text-gray-500">
                 Creates a pending-payment account. Leave the password blank to lock the account
-                (the parent can set a password via Reset Password later). If a Stripe customer
-                already exists for this person, paste their <code className="text-gray-700">cus_…</code> id
-                to link it.
+                — when you click <strong>Send finish-signup</strong> on the user later, the system
+                will auto-generate a temporary password and email it to the parent so they can
+                log in and complete enrollment. If a Stripe customer already exists for this
+                person, paste their <code className="text-gray-700">cus_…</code> id to link it.
               </p>
               <p className="text-[11px] text-gray-500">
                 Fields marked <span className="text-red-500">*</span> are required.
