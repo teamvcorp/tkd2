@@ -146,6 +146,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
   // Step 4 – Stripe (populated after /api/register returns)
   const [clientSecret, setClientSecret] = useState('');
+  // If true, registration completes WITHOUT presenting the Stripe step. The
+  // user can add a card later from /members. This is here to address members
+  // who feel uneasy entering card info during sign-up.
+  const [skipPayment, setSkipPayment] = useState(false);
 
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
@@ -194,6 +198,13 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
       // Sign in so the PATCH /api/settings/payment call on step 4 is authenticated.
       await signIn('credentials', { username, password, redirect: false });
+
+      // User chose "add payment later" — land them on the members dashboard.
+      // Their Mongo row is already created with registrationStatus='pending-payment'.
+      if (skipPayment) {
+        window.location.href = '/members';
+        return;
+      }
 
       if (!data.clientSecret) {
         // Stripe leg failed but user exists; surface the error and stop here.
@@ -353,10 +364,29 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
+            {/* Payment-later toggle. Lets uneasy users finish sign-up and add
+                a card from the members dashboard before enrollment. */}
+            <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 cursor-pointer hover:bg-gray-100">
+              <input
+                type="checkbox"
+                checked={skipPayment}
+                onChange={(e) => setSkipPayment(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-gray-700">
+                <span className="font-medium">I&apos;ll add payment later.</span>{' '}
+                Finish creating my account now — I&apos;ll save my card from my dashboard before enrolling a student.
+              </span>
+            </label>
+
             <div className="flex gap-3">
               <button type="button" onClick={() => { setError(''); setStep(2); }} className={btnSecondary}>← Back</button>
               <button type="submit" disabled={loading} className={btnPrimary}>
-                {loading ? 'Creating account…' : 'Next: Save Card →'}
+                {loading
+                  ? 'Creating account…'
+                  : skipPayment
+                    ? 'Create account'
+                    : 'Next: Save Card →'}
               </button>
             </div>
           </form>
@@ -368,6 +398,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             <PaymentSetupStep
               onSuccess={handlePaymentSaved}
               onBack={() => { setError(''); setStep(3); }}
+              onSkip={() => { window.location.href = '/members'; }}
             />
           </Elements>
         ) : step === 4 && (

@@ -2,18 +2,24 @@
 
 import { useState } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
+import { LockClosedIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 
 interface PaymentSetupStepProps {
   onSuccess: (paymentMethodId: string) => void;
   onBack: () => void;
+  // Optional: lets the user finish sign-up without saving a card and add one
+  // later from their dashboard. When omitted, the skip button is hidden.
+  onSkip?: () => void;
 }
 
 const btnPrimary =
   'block w-full rounded-md bg-indigo-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed';
 const btnSecondary =
   'block w-full rounded-md border border-indigo-600 px-3.5 py-2.5 text-center text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50';
+const btnLink =
+  'text-sm font-medium text-gray-600 hover:text-indigo-600 underline underline-offset-2';
 
-export default function PaymentSetupStep({ onSuccess, onBack }: PaymentSetupStepProps) {
+export default function PaymentSetupStep({ onSuccess, onBack, onSkip }: PaymentSetupStepProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState('');
@@ -45,8 +51,42 @@ export default function PaymentSetupStep({ onSuccess, onBack }: PaymentSetupStep
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-        Your card is saved securely with Stripe. You will only be charged when you enroll a student in a program.
+      {/* Prominent transparency / security panel */}
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <ShieldCheckIcon className="w-5 h-5 text-indigo-600" />
+          <p className="text-sm font-semibold text-indigo-900">Your card is safe — here&apos;s how.</p>
+        </div>
+        <ul className="space-y-1.5 text-xs text-indigo-900/90 list-none">
+          <li className="flex gap-2">
+            <LockClosedIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              Your card details go <strong>directly to Stripe</strong> over an encrypted connection.
+              We never see or store your card number on our servers.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <LockClosedIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              Stripe is a <strong>PCI Service Provider Level 1</strong> processor (the highest
+              security tier in the payments industry) and powers checkout for millions of businesses.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <LockClosedIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              <strong>You will not be charged today.</strong> We&apos;re only saving your card on file —
+              a charge will happen only when you confirm an enrollment, and you&apos;ll see the exact
+              amount before it&apos;s submitted.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <LockClosedIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              You can remove or replace your card any time from your account settings.
+            </span>
+          </li>
+        </ul>
       </div>
 
       <PaymentElement />
@@ -61,6 +101,14 @@ export default function PaymentSetupStep({ onSuccess, onBack }: PaymentSetupStep
           {loading ? 'Saving card…' : 'Save Card →'}
         </button>
       </div>
+
+      {onSkip && (
+        <div className="pt-1 text-center">
+          <button type="button" onClick={onSkip} className={btnLink}>
+            Skip for now — I&apos;ll add my card later
+          </button>
+        </div>
+      )}
     </form>
   );
 }
