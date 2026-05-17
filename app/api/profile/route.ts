@@ -36,9 +36,11 @@ export async function GET() {
     username: user.username,
     parentName: user.parentName,
     parentAge: user.parentAge,
+    phone: user.phone ?? '',
     kids: hasChanges ? updatedKids : user.kids,
     stripeCustomerId: user.stripeCustomerId,
     hasPaymentMethod: !!user.stripePaymentMethodId,
+    registrationStatus: user.registrationStatus,
     purchases: user.purchases ?? [],
     paymentPlanRequests: user.paymentPlanRequests ?? [],
   };
