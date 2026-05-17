@@ -50,10 +50,14 @@ export interface User {
   // Parent / guardian info
   parentName: string;
   parentAge: number;
+  phone: string;                  // Required contact phone number
   // Children enrolled
   kids: Kid[];
   stripeCustomerId?: string;      // Stripe Customer ID (cus_xxx)
   stripePaymentMethodId?: string; // Saved default payment method (pm_xxx)
+  // Registration status: 'pending-payment' means the user finished sign-up
+  // but has not yet saved a card. 'complete' means card is on file.
+  registrationStatus?: 'pending-payment' | 'complete';
   purchases?: Purchase[];
   paymentPlanRequests?: PaymentPlanRequest[];
   archived?: boolean;
@@ -66,9 +70,11 @@ export interface PublicUser {
   username: string;
   parentName: string;
   parentAge: number;
+  phone: string;
   kids: Kid[];
   stripeCustomerId?: string;
   hasPaymentMethod: boolean;
+  registrationStatus?: 'pending-payment' | 'complete';
   purchases?: Purchase[];
   paymentPlanRequests?: PaymentPlanRequest[];
 }

@@ -5,6 +5,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ADMIN_EMAIL = 'admin@thevacorp.com';
 const FROM_EMAIL = 'tkdorder@fyht4.com';
+// Public contact info shown to members in outgoing emails. The Resend
+// verified domain stays on FROM_EMAIL, but replies are routed here so members
+// reach the studio directly.
+const CONTACT_EMAIL = 'admin@thevacorp.com';
+const CONTACT_PHONE = '(712) 560-1128';
+const CONTACT_PHONE_HREF = 'tel:+17125601128';
 
 interface OrderEmailParams {
   parentName: string;
@@ -100,9 +106,16 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType }:
     <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">
       <h2 style="color:#4f46e5;margin-top:0">Taekwondo of Storm Lake</h2>
       ${bodyHtml}
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-top:20px;font-size:14px;line-height:1.6">
+        <p style="margin:0 0 6px;font-weight:600;color:#111827">Need help?</p>
+        <p style="margin:0">
+          Call us at <a href="${CONTACT_PHONE_HREF}" style="color:#4f46e5;text-decoration:none">${CONTACT_PHONE}</a><br/>
+          Email <a href="mailto:${CONTACT_EMAIL}" style="color:#4f46e5;text-decoration:none">${CONTACT_EMAIL}</a> (or just reply to this message)
+        </p>
+      </div>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
       <p style="font-size:12px;color:#9ca3af;margin:0">
-        Taekwondo of Storm Lake &middot; Storm Lake, IA<br/>
+        Taekwondo of Storm Lake &middot; 503 Lake Avenue, Storm Lake, IA 50588<br/>
         To unsubscribe or manage your communications, reply to this email.
       </p>
     </div>
@@ -112,6 +125,7 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType }:
   await resend.emails.send({
     from: FROM_EMAIL,
     to: userEmail,
+    replyTo: CONTACT_EMAIL,
     subject,
     html,
   });
@@ -120,6 +134,7 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType }:
   await resend.emails.send({
     from: FROM_EMAIL,
     to: ADMIN_EMAIL,
+    replyTo: CONTACT_EMAIL,
     subject: `[Reminder Sent] ${reminderLabel} → ${parentName} (${userEmail})`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">

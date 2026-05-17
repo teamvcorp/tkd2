@@ -118,8 +118,13 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 }
 
 // ─── Register form (4 steps) ──────────────────────────────────────────────────
+//
+// Step order is intentional: we ONLY create the Stripe customer after the user
+// has finished steps 1-3 and submitted. That way users who bail mid-flow never
+// produce orphaned Stripe customers, and admin can follow up with anyone who
+// drops off at the card step (they exist in Mongo as `pending-payment`).
 
-const STEP_LABELS = ['Credentials', 'Parent Info', 'Save Card', 'Students'];
+const STEP_LABELS = ['Credentials', 'Parent Info', 'Students', 'Save Card'];
 
 function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -132,16 +137,15 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   // Step 2
   const [parentName, setParentName]  = useState('');
   const [parentAge, setParentAge]    = useState('');
+  const [phone, setPhone]            = useState('');
 
-  // Step 3 – Stripe
-  const [stripeCustomerId, setStripeCustomerId]       = useState('');
-  const [clientSecret, setClientSecret]               = useState('');
-  const [paymentMethodId, setPaymentMethodId]         = useState('');
-
-  // Step 4
+  // Step 3
   const [kids, setKids] = useState<KidFormData[]>([
     { name: '', age: '', rank: 'white', program: '' },
   ]);
+
+  // Step 4 – Stripe (populated after /api/register returns)
+  const [clientSecret, setClientSecret] = useState('');
 
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
@@ -161,35 +165,16 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   };
 
   // ── Step 2 ──────────────────────────────────────────────────────────────────
-  const handleStep2 = async (e: React.FormEvent) => {
+  const handleStep2 = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/stripe/create-customer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parentName, username }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Could not create payment profile.'); setLoading(false); return; }
-      setStripeCustomerId(data.customerId);
-      setClientSecret(data.clientSecret);
-      setStep(3);
-    } catch {
-      setError('Something went wrong. Please try again.');
-    }
-    setLoading(false);
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7) { setError('Please enter a valid phone number.'); return; }
+    setStep(3);
   };
 
-  // ── Step 3 callback (from PaymentSetupStep) ──────────────────────────────────
-  const handlePaymentSaved = (pmId: string) => {
-    setPaymentMethodId(pmId);
-    setStep(4);
-  };
-
-  // ── Step 4 / Final submit ────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ── Step 3 — kids — then register + create Stripe customer ──────────────────
+  const handleStep3 = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (kids.some((k) => !k.program)) { setError('Please select a program for each student.'); return; }
@@ -200,20 +185,47 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username, password,
-          parentName, parentAge: Number(parentAge),
+          parentName, parentAge: Number(parentAge), phone,
           kids,
-          stripeCustomerId,
-          stripePaymentMethodId: paymentMethodId,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Registration failed.'); return; }
+      if (!res.ok) { setError(data.error ?? 'Registration failed.'); setLoading(false); return; }
+
+      // Sign in so the PATCH /api/settings/payment call on step 4 is authenticated.
       await signIn('credentials', { username, password, redirect: false });
+
+      if (!data.clientSecret) {
+        // Stripe leg failed but user exists; surface the error and stop here.
+        setError(data.error ?? 'Payment setup is temporarily unavailable. Please try again later from your account settings.');
+        setLoading(false);
+        return;
+      }
+
+      setClientSecret(data.clientSecret);
+      setStep(4);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Step 4 callback (from PaymentSetupStep) ──────────────────────────────────
+  const handlePaymentSaved = async (pmId: string) => {
+    setLoading(true);
+    try {
+      await fetch('/api/settings/payment', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethodId: pmId }),
+      });
+    } catch {
+      // Non-fatal: user is signed in; admin can re-collect if PATCH failed.
+    } finally {
+      setLoading(false);
+    }
+    // Session was already established at end of step 3.
   };
 
   return (
@@ -274,33 +286,26 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                 value={parentAge} onChange={(e) => setParentAge(e.target.value)}
                 placeholder="35" className={inputCls} />
             </div>
+            <div>
+              <label htmlFor="parent-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <input id="parent-phone" name="parent-phone" type="tel" autoComplete="tel" required
+                value={phone} onChange={(e) => setPhone(e.target.value)}
+                placeholder="(555) 123-4567" className={inputCls} />
+              <p className="mt-1 text-xs text-gray-500">We&apos;ll use this to reach you about your account.</p>
+            </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-3">
               <button type="button" onClick={() => { setError(''); setStep(1); }} className={btnSecondary}>← Back</button>
               <button type="submit" disabled={loading} className={btnPrimary}>
-                {loading ? 'Setting up…' : 'Next: Save Card →'}
+                Next: Students →
               </button>
             </div>
           </form>
         )}
 
-        {/* ─ Step 3: Stripe payment setup ────────────────────────────────────── */}
-        {step === 3 && clientSecret && stripePromise ? (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-            <PaymentSetupStep
-              onSuccess={handlePaymentSaved}
-              onBack={() => { setError(''); setStep(2); }}
-            />
-          </Elements>
-        ) : step === 3 && (
-          <p className="text-sm text-red-600">
-            Stripe is not configured. Please add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
-          </p>
-        )}
-
-        {/* ─ Step 4: Add students ────────────────────────────────────────────── */}
-        {step === 4 && (
-          <form onSubmit={handleSubmit} className="space-y-5">
+        {/* ─ Step 3: Add students ────────────────────────────────────────────── */}
+        {step === 3 && (
+          <form onSubmit={handleStep3} className="space-y-5">
             <div className="space-y-4">
               {kids.map((kid, idx) => (
                 <div key={idx} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
@@ -349,12 +354,26 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div className="flex gap-3">
-              <button type="button" onClick={() => { setError(''); setStep(3); }} className={btnSecondary}>← Back</button>
+              <button type="button" onClick={() => { setError(''); setStep(2); }} className={btnSecondary}>← Back</button>
               <button type="submit" disabled={loading} className={btnPrimary}>
-                {loading ? 'Creating account…' : 'Create Account'}
+                {loading ? 'Creating account…' : 'Next: Save Card →'}
               </button>
             </div>
           </form>
+        )}
+
+        {/* ─ Step 4: Stripe payment setup ────────────────────────────────────── */}
+        {step === 4 && clientSecret && stripePromise ? (
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+            <PaymentSetupStep
+              onSuccess={handlePaymentSaved}
+              onBack={() => { setError(''); setStep(3); }}
+            />
+          </Elements>
+        ) : step === 4 && (
+          <p className="text-sm text-red-600">
+            Stripe is not configured. Please add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
+          </p>
         )}
 
         <p className="mt-5 text-center text-sm text-gray-500">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, PencilIcon, KeyIcon, ChevronDownIcon, ChevronUpIcon, UserGroupIcon, ShoppingBagIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, PencilIcon, KeyIcon, ChevronDownIcon, ChevronUpIcon, UserGroupIcon, ShoppingBagIcon, EnvelopeIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 import { PROGRAMS } from '@/lib/programs';
@@ -31,9 +31,11 @@ interface AdminUser {
   username: string;
   parentName: string;
   parentAge: number;
+  phone: string;
   kids: Kid[];
   stripeCustomerId?: string;
   hasPaymentMethod: boolean;
+  registrationStatus?: 'pending-payment' | 'complete';
   archived?: boolean;
   paymentPlanRequests?: PaymentPlanRequest[];
 }
@@ -275,8 +277,14 @@ export default function AdminPage() {
   const [reminderType, setReminderType] = useState('');
   const [reminderLoading, setReminderLoading] = useState(false);
   const [reminderDone, setReminderDone] = useState<string | null>(null);
+  const [quickSendingId, setQuickSendingId] = useState<string | null>(null);
+  const [contactEditUserId, setContactEditUserId] = useState<string | null>(null);
+  const [contactDraft, setContactDraft] = useState<{ parentName: string; parentAge: string; phone: string; username: string }>({ parentName: '', parentAge: '', phone: '', username: '' });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactSavedId, setContactSavedId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const loadUsers = async () => {
     setUsersLoading(true);
@@ -320,6 +328,63 @@ export default function AdminPage() {
     }
   };
 
+  const startContactEdit = (u: AdminUser) => {
+    setContactDraft({
+      parentName: u.parentName ?? '',
+      parentAge: u.parentAge != null ? String(u.parentAge) : '',
+      phone: u.phone ?? '',
+      username: u.username ?? '',
+    });
+    setContactEditUserId(u.id);
+  };
+
+  const handleSaveContact = async (userId: string) => {
+    const original = users.find((u) => u.id === userId);
+    if (!original) return;
+    const payload: Record<string, unknown> = {};
+    const trimmedName = contactDraft.parentName.trim();
+    const trimmedPhone = contactDraft.phone.trim();
+    const trimmedUsername = contactDraft.username.trim().toLowerCase();
+    const parsedAge = contactDraft.parentAge.trim() === '' ? null : Number(contactDraft.parentAge);
+    if (trimmedName !== (original.parentName ?? '')) payload.parentName = trimmedName;
+    if (parsedAge !== null && parsedAge !== (original.parentAge ?? null)) payload.parentAge = parsedAge;
+    if (trimmedPhone !== (original.phone ?? '')) payload.phone = trimmedPhone;
+    if (trimmedUsername !== (original.username ?? '').toLowerCase()) payload.username = trimmedUsername;
+    if (Object.keys(payload).length === 0) {
+      setContactEditUserId(null);
+      return;
+    }
+    setContactSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId
+          ? {
+              ...u,
+              parentName: 'parentName' in payload ? (payload.parentName as string) : u.parentName,
+              parentAge: 'parentAge' in payload ? (payload.parentAge as number) : u.parentAge,
+              phone: 'phone' in payload ? (payload.phone as string) : u.phone,
+              username: 'username' in payload ? (payload.username as string) : u.username,
+            }
+          : u));
+        setContactSavedId(userId);
+        setContactEditUserId(null);
+        setTimeout(() => setContactSavedId(null), 2500);
+      } else {
+        setError(data.error ?? 'Failed to update contact info.');
+      }
+    } catch {
+      setError('Failed to update contact info.');
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   const handleSendReminder = async (userId: string) => {
     if (!reminderType) return;
     setReminderLoading(true);
@@ -342,6 +407,31 @@ export default function AdminPage() {
       setError('Failed to send reminder.');
     } finally {
       setReminderLoading(false);
+    }
+  };
+
+  // One-click action used on pending-account rows. Sends the existing
+  // "finish-signup" reminder email without forcing the admin to expand the
+  // row and pick from the reminder dropdown.
+  const handleQuickFinishSignup = async (userId: string) => {
+    setQuickSendingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'finish-signup' }),
+      });
+      if (res.ok) {
+        setReminderDone(userId);
+        setTimeout(() => setReminderDone(null), 3000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? 'Failed to send reminder.');
+      }
+    } catch {
+      setError('Failed to send reminder.');
+    } finally {
+      setQuickSendingId(null);
     }
   };
 
@@ -540,14 +630,20 @@ export default function AdminPage() {
     });
   };
 
+  const isPending = (u: AdminUser) =>
+    u.registrationStatus === 'pending-payment' || !u.hasPaymentMethod;
+  const pendingCount = users.filter((u) => !u.archived && isPending(u)).length;
+
   const filteredUsers = users.filter((u) => {
     if (!showArchived && u.archived) return false;
     if (showArchived && !u.archived) return false;
+    if (showPendingOnly && !isPending(u)) return false;
     if (!userSearch.trim()) return true;
     const q = userSearch.toLowerCase();
     return (
       u.username.toLowerCase().includes(q) ||
       u.parentName.toLowerCase().includes(q) ||
+      u.phone.toLowerCase().includes(q) ||
       u.kids.some((k) => k.name.toLowerCase().includes(q))
     );
   });
@@ -910,6 +1006,17 @@ export default function AdminPage() {
                 />
                 Show Archived
               </label>
+              <button
+                type="button"
+                onClick={() => setShowPendingOnly((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  showPendingOnly
+                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                {showPendingOnly ? '✓ Showing pending only' : `Pending follow-ups (${pendingCount})`}
+              </button>
             </div>
 
             {usersLoading ? (
@@ -942,8 +1049,19 @@ export default function AdminPage() {
                             {user.parentName.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
-                            <p className="text-xs text-gray-500 truncate">@{user.username} · {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}{user.archived ? ' · Archived' : ''}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
+                              {isPending(user) && (
+                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                                  {user.registrationStatus === 'pending-payment' ? 'Needs card' : 'No payment'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              @{user.username}
+                              {user.phone && <> · <a href={`tel:${user.phone}`} className="hover:underline text-indigo-600" onClick={(e) => e.stopPropagation()}>{user.phone}</a></>}
+                              {' '}· {user.kids.length} kid{user.kids.length !== 1 ? 's' : ''}{user.archived ? ' · Archived' : ''}
+                            </p>
                             {(() => {
                               const outstanding = (user.paymentPlanRequests ?? []).reduce((sum, req) => {
                                 if (req.status !== 'approved') return sum;
@@ -971,6 +1089,31 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {isPending(user) && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleQuickFinishSignup(user.id); }}
+                              disabled={quickSendingId === user.id}
+                              className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                              title="Email this user a link to finish signing up"
+                            >
+                              <EnvelopeIcon className="w-3.5 h-3.5" />
+                              {quickSendingId === user.id
+                                ? 'Sending…'
+                                : reminderDone === user.id
+                                  ? 'Sent ✓'
+                                  : 'Send finish-signup'}
+                            </button>
+                          )}
+                          <a
+                            href={`mailto:${user.username}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+                            title={`Email ${user.username}`}
+                          >
+                            <EnvelopeIcon className="w-3.5 h-3.5" />
+                            Email
+                          </a>
                           {resetPwDone === user.id && (
                             <span className="text-xs text-green-600 flex items-center gap-1">
                               <CheckCircleIcon className="w-3.5 h-3.5" /> Password reset
@@ -992,6 +1135,97 @@ export default function AdminPage() {
                       {/* Expanded details */}
                       {isExpanded && (
                         <div className="border-t border-gray-100 px-4 py-4">
+                          {/* Contact info */}
+                          <div className="mb-5 pb-4 border-b border-gray-100">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <UserCircleIcon className="w-4 h-4 text-gray-500" />
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contact Info</span>
+                                {contactSavedId === user.id && (
+                                  <span className="text-xs text-green-600 flex items-center gap-1">
+                                    <CheckCircleIcon className="w-3.5 h-3.5" /> Saved
+                                  </span>
+                                )}
+                              </div>
+                              {contactEditUserId !== user.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => startContactEdit(user)}
+                                  className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                            {contactEditUserId === user.id ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label className="text-xs text-gray-600">
+                                  <span className="block mb-1 font-medium">Parent name</span>
+                                  <input
+                                    type="text"
+                                    value={contactDraft.parentName}
+                                    onChange={(e) => setContactDraft((d) => ({ ...d, parentName: e.target.value }))}
+                                    className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </label>
+                                <label className="text-xs text-gray-600">
+                                  <span className="block mb-1 font-medium">Parent age</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={120}
+                                    value={contactDraft.parentAge}
+                                    onChange={(e) => setContactDraft((d) => ({ ...d, parentAge: e.target.value }))}
+                                    className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </label>
+                                <label className="text-xs text-gray-600">
+                                  <span className="block mb-1 font-medium">Email (login)</span>
+                                  <input
+                                    type="email"
+                                    value={contactDraft.username}
+                                    onChange={(e) => setContactDraft((d) => ({ ...d, username: e.target.value }))}
+                                    className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </label>
+                                <label className="text-xs text-gray-600">
+                                  <span className="block mb-1 font-medium">Phone</span>
+                                  <input
+                                    type="tel"
+                                    value={contactDraft.phone}
+                                    onChange={(e) => setContactDraft((d) => ({ ...d, phone: e.target.value }))}
+                                    className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                </label>
+                                <div className="sm:col-span-2 flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={contactSaving}
+                                    onClick={() => handleSaveContact(user.id)}
+                                    className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                  >
+                                    {contactSaving ? 'Saving…' : 'Save changes'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setContactEditUserId(null)}
+                                    className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <span className="text-[11px] text-gray-500">Changes are also synced to Stripe.</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                <div><span className="text-gray-500">Name:</span> <span className="text-gray-900">{user.parentName || '—'}</span></div>
+                                <div><span className="text-gray-500">Age:</span> <span className="text-gray-900">{user.parentAge ?? '—'}</span></div>
+                                <div><span className="text-gray-500">Email:</span> <span className="text-gray-900">{user.username}</span></div>
+                                <div><span className="text-gray-500">Phone:</span> <span className="text-gray-900">{user.phone || '—'}</span></div>
+                              </div>
+                            )}
+                          </div>
+
                           {/* Password reset */}
                           <div className="mb-5 pb-4 border-b border-gray-100">
                             <div className="flex items-center gap-2 mb-2">
