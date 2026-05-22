@@ -14,19 +14,22 @@ interface Props {
   amount: number; // cents — already the installment amount if using a plan
   oneTimeFee?: boolean;
   paymentPlan?: { installments: number; installmentAmount: number };
+  savedCard?: { brand: string; last4: string } | null;
   onSuccess: (paymentIntentId: string) => void;
   onClose: () => void;
 }
 
 function EnrollForm({
+  clientSecret,
   kidName,
   programName,
   amount,
   oneTimeFee,
   paymentPlan,
+  savedCard,
   onSuccess,
   onClose,
-}: Omit<Props, 'clientSecret' | 'stripePromise'>) {
+}: Omit<Props, 'stripePromise'>) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState('');
@@ -34,11 +37,24 @@ function EnrollForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe) return;
 
     setError('');
     setLoading(true);
 
+    if (savedCard) {
+      // Saved card already attached to the PaymentIntent server-side — just confirm.
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret);
+      setLoading(false);
+      if (stripeError) {
+        setError(stripeError.message ?? 'Payment failed. Please try again.');
+      } else if (paymentIntent?.status === 'succeeded') {
+        onSuccess(paymentIntent.id);
+      }
+      return;
+    }
+
+    if (!elements) return;
     const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -82,10 +98,21 @@ function EnrollForm({
       <p className="text-xs text-gray-500">
         {paymentPlan
           ? `You will be charged ${formatPrice(amount, oneTimeFee)} now. Remaining installments are billed per your plan.`
-          : 'Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available. You will only be charged after confirming below.'}
+          : savedCard
+            ? 'Your saved card on file will be charged when you confirm below.'
+            : 'Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available. You will only be charged after confirming below.'}
       </p>
 
-      <PaymentElement />
+      {savedCard ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
+          <div className="text-sm">
+            <p className="font-semibold text-gray-900 capitalize">{savedCard.brand} •••• {savedCard.last4}</p>
+            <p className="text-xs text-gray-500">Saved card on file</p>
+          </div>
+        </div>
+      ) : (
+        <PaymentElement />
+      )}
 
       {error && (
         <p className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
@@ -121,6 +148,7 @@ export default function EnrollConfirmModal({
   amount,
   oneTimeFee,
   paymentPlan,
+  savedCard,
   onSuccess,
   onClose,
 }: Props) {
@@ -138,11 +166,13 @@ export default function EnrollConfirmModal({
           options={{ clientSecret, appearance: { theme: 'stripe' } }}
         >
           <EnrollForm
+            clientSecret={clientSecret}
             kidName={kidName}
             programName={programName}
             amount={amount}
             oneTimeFee={oneTimeFee}
             paymentPlan={paymentPlan}
+            savedCard={savedCard}
             onSuccess={onSuccess}
             onClose={onClose}
           />

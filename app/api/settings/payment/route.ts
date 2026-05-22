@@ -99,7 +99,11 @@ export async function PATCH(request: Request) {
       });
     }
 
-    await updateUser({ ...user, stripePaymentMethodId: paymentMethodId });
+    await updateUser({
+      ...user,
+      stripePaymentMethodId: paymentMethodId,
+      registrationStatus: 'complete',
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('settings/payment PATCH error:', err);

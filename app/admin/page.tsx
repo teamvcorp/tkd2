@@ -745,7 +745,7 @@ export default function AdminPage() {
   };
 
   const isPending = (u: AdminUser) =>
-    u.registrationStatus === 'pending-payment' || !u.hasPaymentMethod;
+    (u.registrationStatus === 'pending-payment' && !u.hasPaymentMethod) || !u.hasPaymentMethod;
   const pendingCount = users.filter((u) => !u.archived && isPending(u)).length;
 
   const filteredUsers = users.filter((u) => {
@@ -1175,7 +1175,7 @@ export default function AdminPage() {
                               <p className="text-sm font-semibold text-gray-900 truncate">{user.parentName}</p>
                               {isPending(user) && (
                                 <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-                                  {user.registrationStatus === 'pending-payment' ? 'Needs card' : 'No payment'}
+                                  {!user.hasPaymentMethod ? 'Needs card' : 'No payment'}
                                 </span>
                               )}
                             </div>

@@ -56,11 +56,12 @@ export async function POST(request: Request) {
       planRequestId = approvedPlan.id;
     }
 
+    const hasSavedCard = Boolean(user.stripePaymentMethodId);
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: chargeAmount,
       currency: 'usd',
       customer: user.stripeCustomerId,
-      automatic_payment_methods: { enabled: true },
       description: usePaymentPlan
         ? `${program.name} – installment 1 of ${installments} for ${kid.name}`
         : `${program.name} – 1-year enrollment for ${kid.name}`,
@@ -71,7 +72,25 @@ export async function POST(request: Request) {
         type: 'enrollment',
         ...(usePaymentPlan && { paymentPlan: 'true', installments: String(installments), planRequestId: planRequestId ?? '' }),
       },
+      ...(hasSavedCard
+        ? { payment_method: user.stripePaymentMethodId, payment_method_types: ['card'] }
+        : { automatic_payment_methods: { enabled: true } }),
     });
+
+    let savedCard: { brand: string; last4: string } | null = null;
+    if (hasSavedCard) {
+      try {
+        const pm = await stripe.paymentMethods.retrieve(user.stripePaymentMethodId!);
+        savedCard = pm.card
+          ? { brand: pm.card.brand, last4: pm.card.last4 }
+          : { brand: pm.type ?? 'card', last4: '••••' };
+      } catch (e) {
+        console.error('enroll: paymentMethods.retrieve failed', e);
+        // Still take the saved-card confirm path on the client; the PaymentIntent
+        // was created with payment_method already attached.
+        savedCard = { brand: 'card', last4: '••••' };
+      }
+    }
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
@@ -79,6 +98,7 @@ export async function POST(request: Request) {
       programName: program.name,
       kidName: kid.name,
       oneTimeFee: program.oneTimeFee ?? false,
+      savedCard,
       ...(installments !== undefined && { installments }),
     });
   } catch (err) {

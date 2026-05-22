@@ -880,6 +880,7 @@ function FamilyDashboard({
     amount: number;
     oneTimeFee?: boolean;
     paymentPlan?: { installments: number; installmentAmount: number };
+    savedCard?: { brand: string; last4: string } | null;
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
@@ -951,6 +952,7 @@ function FamilyDashboard({
           programName: data.programName,
           amount: data.amount,
           oneTimeFee: data.oneTimeFee,
+          savedCard: data.savedCard ?? null,
         });
       }
     } catch {
@@ -979,6 +981,7 @@ function FamilyDashboard({
           programName: data.programName,
           amount: data.amount,
           paymentPlan: { installments: data.installments, installmentAmount: data.amount },
+          savedCard: data.savedCard ?? null,
         });
       }
     } catch {
@@ -1120,6 +1123,7 @@ function FamilyDashboard({
             amount={enrollModal.amount}
             oneTimeFee={enrollModal.oneTimeFee}
             paymentPlan={enrollModal.paymentPlan}
+            savedCard={enrollModal.savedCard}
             onSuccess={handleEnrollSuccess}
             onClose={() => setEnrollModal(null)}
           />
