@@ -38,7 +38,7 @@ const btnSecondary =
 
 // ─── Login form ───────────────────────────────────────────────────────────────
 
-function LoginForm({ onSwitch }: { onSwitch: () => void }) {
+function LoginForm({ onSwitch, onForgot }: { onSwitch: () => void; onForgot: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -83,9 +83,18 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             />
           </div>
           <div>
-            <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={onForgot}
+                className="text-sm text-indigo-600 font-medium hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
             <input
               id="login-password"
               name="password"
@@ -112,6 +121,95 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             Create one
           </button>
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Forgot password form ─────────────────────────────────────────────────────
+
+function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-1 uppercase tracking-wide">
+          Reset password
+        </h2>
+        {sent ? (
+          <>
+            <p className="text-sm text-gray-500 text-center mb-6 mt-2">
+              If an account exists for <span className="font-medium">{username}</span>, we&apos;ve
+              sent a password reset link. Check your inbox (and spam folder) — the link expires in 1
+              hour.
+            </p>
+            <button onClick={onBack} className={btnPrimary}>
+              Back to sign in
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Enter your account email and we&apos;ll send you a link to reset your password.
+            </p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  id="forgot-email"
+                  name="username"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="you@example.com"
+                  className={inputCls}
+                />
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <button type="submit" disabled={loading} className={btnPrimary}>
+                {loading ? 'Sending…' : 'Send reset link'}
+              </button>
+            </form>
+            <p className="mt-5 text-center text-sm text-gray-500">
+              <button onClick={onBack} className="text-indigo-600 font-medium hover:underline">
+                Back to sign in
+              </button>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1299,7 +1397,7 @@ function KidDashboard({ kid, onBack }: { kid: Kid; onBack: () => void }) {
 
 export default function MembersPage() {
   const { data: session, status } = useSession();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
   const [kids, setKids] = useState<Kid[]>([]);
   const [parentName, setParentName] = useState('');
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
@@ -1337,9 +1435,18 @@ export default function MembersPage() {
   }
 
   if (!session) {
-    return authView === 'login'
-      ? <LoginForm onSwitch={() => setAuthView('register')} />
-      : <RegisterForm onSwitch={() => setAuthView('login')} />;
+    if (authView === 'register') {
+      return <RegisterForm onSwitch={() => setAuthView('login')} />;
+    }
+    if (authView === 'forgot') {
+      return <ForgotPasswordForm onBack={() => setAuthView('login')} />;
+    }
+    return (
+      <LoginForm
+        onSwitch={() => setAuthView('register')}
+        onForgot={() => setAuthView('forgot')}
+      />
+    );
   }
 
   if (selectedKid) {

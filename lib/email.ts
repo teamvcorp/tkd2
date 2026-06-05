@@ -171,3 +171,42 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType, t
     `,
   });
 }
+
+// ─── Password Reset Email ─────────────────────────────────────────────────────
+
+interface PasswordResetEmailParams {
+  parentName: string;
+  userEmail: string;
+  /** Absolute URL to the reset page, including the one-time token query param. */
+  resetUrl: string;
+}
+
+export async function sendPasswordResetEmail({ parentName, userEmail, resetUrl }: PasswordResetEmailParams) {
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;color:#374151">
+      <h2 style="color:#4f46e5;margin-top:0">Reset your password</h2>
+      <p>Hi ${parentName || 'there'},</p>
+      <p>We received a request to reset the password for your <strong>Taekwondo of Storm Lake</strong> account (${userEmail}). Click the button below to choose a new password.</p>
+      <p style="margin:24px 0">
+        <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600">Reset my password</a>
+      </p>
+      <p style="font-size:13px;color:#6b7280">This link expires in 1 hour and can be used once. If the button doesn't work, copy and paste this URL into your browser:</p>
+      <p style="font-size:13px;word-break:break-all"><a href="${resetUrl}" style="color:#4f46e5">${resetUrl}</a></p>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-top:20px;font-size:14px;line-height:1.6">
+        <p style="margin:0">If you didn't request this, you can safely ignore this email — your password won't change. Need help? Call <a href="${CONTACT_PHONE_HREF}" style="color:#4f46e5;text-decoration:none">${CONTACT_PHONE}</a> or email <a href="mailto:${CONTACT_EMAIL}" style="color:#4f46e5;text-decoration:none">${CONTACT_EMAIL}</a>.</p>
+      </div>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
+      <p style="font-size:12px;color:#9ca3af;margin:0">
+        Taekwondo of Storm Lake &middot; 503 Lake Avenue, Storm Lake, IA 50588
+      </p>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: userEmail,
+    replyTo: CONTACT_EMAIL,
+    subject: 'Reset your password – Taekwondo of Storm Lake',
+    html,
+  });
+}
