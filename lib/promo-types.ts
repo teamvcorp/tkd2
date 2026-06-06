@@ -14,7 +14,8 @@ export interface Promo {
   description: string;
   price: number;              // in cents USD (e.g. 2500 = $25.00)
   quantity: number;           // qty available
-  imageSrc: string;           // Vercel Blob URL
+  imageSrc: string;           // Vercel Blob URL (image or video file)
+  mediaType?: 'image' | 'video'; // how to render imageSrc; defaults to 'image'
   stripeProductId: string;    // Stripe Product ID
   stripePriceId: string;      // Stripe Price ID
   active: boolean;

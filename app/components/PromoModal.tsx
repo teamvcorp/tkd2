@@ -24,6 +24,7 @@ interface PromoData {
     price: number;
     quantity: number;
     imageSrc: string;
+    mediaType?: 'image' | 'video';
     active: boolean;
     products?: PromoProduct[];
     notesPlaceholder?: string;
@@ -204,12 +205,25 @@ export default function PromoModal({ open, onClose }: { open: boolean; onClose: 
                 {step === 'info' && (
                     <div>
                         {promo.imageSrc && (
-                            <img
-                                src={promo.imageSrc}
-                                alt={promo.description || 'Current Promo'}
-                                className="w-full rounded border object-contain"
-                                style={{ maxHeight: '40vh' }}
-                            />
+                            promo.mediaType === 'video' ? (
+                                <video
+                                    src={promo.imageSrc}
+                                    controls
+                                    autoPlay
+                                    muted
+                                    loop
+                                    playsInline
+                                    className="w-full rounded border object-contain bg-black"
+                                    style={{ maxHeight: '40vh' }}
+                                />
+                            ) : (
+                                <img
+                                    src={promo.imageSrc}
+                                    alt={promo.description || 'Current Promo'}
+                                    className="w-full rounded border object-contain"
+                                    style={{ maxHeight: '40vh' }}
+                                />
+                            )
                         )}
                         {promo.description && (
                             <p className="mt-3 text-center text-lg font-semibold text-gray-800">

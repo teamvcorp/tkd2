@@ -28,8 +28,11 @@ export async function POST(request: Request) {
       request,
       token: process.env.Images_READ_WRITE_TOKEN,
       onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-        maximumSizeInBytes: 10 * 1024 * 1024, // 10 MB
+        allowedContentTypes: [
+          'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+          'video/mp4', 'video/webm', 'video/quicktime', 'video/ogg',
+        ],
+        maximumSizeInBytes: 100 * 1024 * 1024, // 100 MB (videos run larger than images)
         addRandomSuffix: false,
         allowOverwrite: true,
         tokenPayload: JSON.stringify({ promoId: promo.id }),
@@ -42,6 +45,7 @@ export async function POST(request: Request) {
           if (payload.promoId) {
             await updatePromo(payload.promoId, {
               imageSrc: blob.url,
+              mediaType: blob.contentType?.startsWith('video/') ? 'video' : 'image',
               updatedAt: new Date().toISOString(),
             });
           }
@@ -72,13 +76,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'No active promo.' }, { status: 400 });
   }
 
-  const { url } = (await request.json()) as { url?: string };
+  const { url, mediaType } = (await request.json()) as { url?: string; mediaType?: 'image' | 'video' };
   if (!url || typeof url !== 'string') {
     return NextResponse.json({ error: 'Missing url.' }, { status: 400 });
   }
 
   await updatePromo(promo.id, {
     imageSrc: url,
+    mediaType: mediaType === 'video' ? 'video' : 'image',
     updatedAt: new Date().toISOString(),
   });
   return NextResponse.json({ success: true, url });

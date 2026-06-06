@@ -17,6 +17,7 @@ interface Promo {
   price: number;
   quantity: number;
   imageSrc: string;
+  mediaType?: 'image' | 'video';
   stripeProductId: string;
   stripePriceId: string;
   active: boolean;
@@ -39,6 +40,7 @@ export default function AdminPromoClient() {
   const [stripePriceId, setStripePriceId] = useState('');
   const [active, setActive] = useState(true);
   const [imageSrc, setImageSrc] = useState('');
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [updatedAt, setUpdatedAt] = useState('');
   const [products, setProducts] = useState<PromoProduct[]>([]);
   const [productPrices, setProductPrices] = useState<Record<string, string>>({});
@@ -67,6 +69,7 @@ export default function AdminPromoClient() {
         setStripePriceId(p.stripePriceId);
         setActive(p.active);
         setImageSrc(p.imageSrc);
+        setMediaType(p.mediaType ?? 'image');
         setUpdatedAt(p.updatedAt);
         setProducts(p.products ?? []);
         setNotesPlaceholder(p.notesPlaceholder ?? '');
@@ -102,6 +105,7 @@ export default function AdminPromoClient() {
     setStripePriceId('');
     setActive(true);
     setImageSrc('');
+    setMediaType('image');
     setUpdatedAt('');
     setProducts([]);
     setProductPrices({});
@@ -121,6 +125,7 @@ export default function AdminPromoClient() {
     setStripePriceId(p.stripePriceId);
     setActive(p.active);
     setImageSrc(p.imageSrc);
+    setMediaType(p.mediaType ?? 'image');
     setProducts(p.products ?? []);
     setNotesPlaceholder(p.notesPlaceholder ?? '');
     const pp: Record<string, string> = {};
@@ -189,20 +194,24 @@ export default function AdminPromoClient() {
     if (!file) return;
     setError('');
 
-    if (!file.type.startsWith('image/')) {
-      setError('File must be an image.');
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isImage && !isVideo) {
+      setError('File must be an image or a video.');
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image must be under 10 MB.');
+    const maxBytes = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setError(isVideo ? 'Video must be under 100 MB.' : 'Image must be under 10 MB.');
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
+    const nextMediaType: 'image' | 'video' = isVideo ? 'video' : 'image';
 
     setUploading(true);
     try {
-      const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+      const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg').replace('quicktime', 'mov') ?? (isVideo ? 'mp4' : 'jpg');
       // Upload directly from the browser to Vercel Blob storage. This avoids
       // the platform's ~4.5 MB serverless body limit that was causing 413s.
       const blob = await upload(`promo-images/upload-${Date.now()}.${ext}`, file, {
@@ -211,24 +220,25 @@ export default function AdminPromoClient() {
         contentType: file.type,
       });
 
-      // Persist the resulting URL on the active promo (also serves as the
-      // dev fallback for the onUploadCompleted webhook).
+      // Persist the resulting URL + media type on the active promo (also serves
+      // as the dev fallback for the onUploadCompleted webhook).
       const res = await fetch('/api/admin/promo/image', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: blob.url }),
+        body: JSON.stringify({ url: blob.url, mediaType: nextMediaType }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'Failed to save image URL.');
+        setError(data.error || 'Failed to save media URL.');
         return;
       }
 
       setImageSrc(blob.url);
-      setSuccess('Image uploaded!');
+      setMediaType(nextMediaType);
+      setSuccess(isVideo ? 'Video uploaded!' : 'Image uploaded!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Image upload error.');
+      setError(err instanceof Error ? err.message : 'Upload error.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -407,22 +417,31 @@ export default function AdminPromoClient() {
             <p className="text-xs text-gray-400 mt-1">Placeholder text shown in the customer notes field on the promo page.</p>
           </div>
 
-          {/* Image Upload */}
+          {/* Image / Video Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Promo Image
+              Promo Image or Video
             </label>
             {imageSrc && (
-              <img
-                src={imageSrc}
-                alt="Promo"
-                className="w-48 h-48 object-cover rounded-lg border mb-2"
-              />
+              mediaType === 'video' ? (
+                <video
+                  src={imageSrc}
+                  controls
+                  playsInline
+                  className="w-48 h-48 object-cover rounded-lg border mb-2 bg-black"
+                />
+              ) : (
+                <img
+                  src={imageSrc}
+                  alt="Promo"
+                  className="w-48 h-48 object-cover rounded-lg border mb-2"
+                />
+              )
             )}
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={handleImageUpload}
               disabled={uploading}
               className="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -430,7 +449,7 @@ export default function AdminPromoClient() {
             {uploading && (
               <p className="text-sm text-gray-500 mt-1">Uploading…</p>
             )}
-            <p className="text-xs text-gray-400 mt-1">Max 10 MB. Save the promo first before uploading an image.</p>
+            <p className="text-xs text-gray-400 mt-1">Image up to 10 MB or video up to 100 MB. Save the promo first before uploading.</p>
           </div>
 
           {/* ── Additional Products ── */}

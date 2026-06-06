@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     price: Number(body.price),
     quantity: Number(body.quantity),
     imageSrc: body.imageSrc ?? existing?.imageSrc ?? '',
+    mediaType: body.mediaType ?? existing?.mediaType ?? 'image',
     stripeProductId: body.stripeProductId ?? '',
     stripePriceId: body.stripePriceId ?? '',
     active: body.active ?? true,
