@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   const username =
     (session.user as { username?: string }).username ?? session.user.email ?? '';
 
-  const body = await request.json() as { requestId?: string };
-  const { requestId } = body;
+  const body = await request.json() as { requestId?: string; payRemaining?: boolean };
+  const { requestId, payRemaining } = body;
   if (!requestId) {
     return NextResponse.json({ error: 'requestId required' }, { status: 400 });
   }
@@ -53,19 +53,38 @@ export async function POST(request: Request) {
   const program = getProgramById(kid.program ?? '');
   if (!program) return NextResponse.json({ error: 'Student has no program assigned' }, { status: 400 });
 
-  const installmentAmount = Math.round(program.pricePerYear / planRequest.installments);
-  const installmentNumber = paid + 1;
+  // Remaining balance is derived from the ledger (sum of succeeded charges), not
+  // count × installmentAmount — this self-heals the rounding drift from Math.round
+  // so an early payoff collects exactly what's owed and never a cent more.
+  const succeededPaid = (planRequest.chargeHistory ?? [])
+    .filter((r) => r.status === 'succeeded')
+    .reduce((sum, r) => sum + r.amount, 0);
+
+  let chargeAmount: number;
+  let installmentNumber: number;
+  if (payRemaining) {
+    chargeAmount = program.pricePerYear - succeededPaid;
+    if (chargeAmount <= 0) {
+      return NextResponse.json({ error: 'This plan is already paid in full.' }, { status: 400 });
+    }
+    installmentNumber = planRequest.installments;
+  } else {
+    chargeAmount = Math.round(program.pricePerYear / planRequest.installments);
+    installmentNumber = paid + 1;
+  }
 
   try {
     assertStripeKey();
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: installmentAmount,
+      amount: chargeAmount,
       currency: 'usd',
       customer: user.stripeCustomerId,
       payment_method: user.stripePaymentMethodId,
       confirm: true,
       off_session: true,
-      description: `${program.name} – installment ${installmentNumber} of ${planRequest.installments} for ${kid.name}`,
+      description: payRemaining
+        ? `${program.name} – remaining balance payoff for ${kid.name}`
+        : `${program.name} – installment ${installmentNumber} of ${planRequest.installments} for ${kid.name}`,
       metadata: {
         username: user.username,
         kidIndex: String(planRequest.kidIndex),
@@ -75,32 +94,39 @@ export async function POST(request: Request) {
         installments: String(planRequest.installments),
         installmentNumber: String(installmentNumber),
         planRequestId: planRequest.id,
+        ...(payRemaining && { payoff: 'true' }),
       },
     });
 
     if (paymentIntent.status === 'succeeded') {
       const record: InstallmentRecord = {
         installmentNumber,
-        amount: installmentAmount,
+        amount: chargeAmount,
         method: 'stripe',
         status: 'succeeded',
         stripePaymentIntentId: paymentIntent.id,
         chargedAt: new Date().toISOString(),
       };
+      // A payoff settles the whole plan, so jump straight to fully paid;
+      // a single installment just advances the counter by one.
+      const newInstallmentsPaid = payRemaining ? planRequest.installments : installmentNumber;
       await col().updateOne(
         { id: user.id, 'paymentPlanRequests.id': requestId },
         {
-          $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
+          $set: {
+            'paymentPlanRequests.$.installmentsPaid': newInstallmentsPaid,
+            updatedAt: new Date().toISOString(),
+          },
           $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
-          $set: { updatedAt: new Date().toISOString() },
         } as any,
       );
 
       return NextResponse.json({
         success: true,
         installmentNumber,
-        installmentsPaid: installmentNumber,
+        installmentsPaid: newInstallmentsPaid,
         installments: planRequest.installments,
+        paidInFull: newInstallmentsPaid >= planRequest.installments,
       });
     }
 

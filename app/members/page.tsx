@@ -7,10 +7,12 @@ import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import BeltStudy, { BELT_LABELS } from '@/app/components/BeltStudy';
 import PaymentSetupStep from '@/app/components/PaymentSetupStep';
-import { PROGRAMS, getProgramById, formatPrice } from '@/lib/programs';
+import { getProgramById, formatPrice } from '@/lib/programs';
 import type { Kid, Purchase, PaymentPlanRequest } from '@/lib/types';
 import ProShop from '@/app/components/ProShop';
 import EnrollConfirmModal from '@/app/components/EnrollConfirmModal';
+import ProgramPicker from '@/app/components/ProgramPicker';
+import PaymentMethodManager from '@/app/components/PaymentMethodManager';
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -445,15 +447,12 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor={`kid-${idx}-program`} className="block text-xs font-medium text-gray-600 mb-1">Program</label>
-                    <select id={`kid-${idx}-program`} name={`kid-${idx}-program`} value={kid.program} onChange={(e) => updateKid(idx, 'program', e.target.value)} className={inputCls} required>
-                      <option value="">— Select a program —</option>
-                      {PROGRAMS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} · {p.description} · {formatPrice(p.pricePerYear, p.oneTimeFee, p.durationYears)}
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Program</label>
+                    <ProgramPicker
+                      idPrefix={`kid-${idx}-program`}
+                      value={kid.program}
+                      onChange={(programId) => updateKid(idx, 'program', programId)}
+                    />
                   </div>
                 </div>
               ))}
@@ -573,8 +572,11 @@ function KidCard({
   onEnrollWithPlan,
   onRequestPlan,
   onPayInstallment,
+  onPayRemaining,
+  onAddCard,
   onAvatarUpdated,
   onDelete,
+  busy = false,
 }: {
   kid: Kid;
   kidIndex: number;
@@ -585,14 +587,26 @@ function KidCard({
   onEnrollWithPlan: (idx: number) => void;
   onRequestPlan: (idx: number) => void;
   onPayInstallment: (idx: number, requestId: string) => void;
+  onPayRemaining: (idx: number, requestId: string) => void;
+  onAddCard: () => void;
   onAvatarUpdated?: (url: string) => void;
   onDelete?: (idx: number) => void;
+  busy?: boolean;
 }) {
   const colors = beltColors[kid.rank] ?? beltColors.white;
   const initials = kid.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   const program = getProgramById(kid.program ?? '');
   const status = kid.status ?? 'pending';
   const days = kid.expiresAt ? daysUntil(kid.expiresAt) : null;
+
+  // Payment-plan ledger: remaining balance is derived from succeeded charges so
+  // the "Pay remaining balance" label matches what the server will actually take.
+  const installmentsPaid = paymentPlanRequest?.installmentsPaid ?? 0;
+  const installmentsLeft = paymentPlanRequest ? paymentPlanRequest.installments - installmentsPaid : 0;
+  const succeededPaid = (paymentPlanRequest?.chargeHistory ?? [])
+    .filter((r) => r.status === 'succeeded')
+    .reduce((sum, r) => sum + r.amount, 0);
+  const remainingBalance = program ? Math.max(0, program.pricePerYear - succeededPaid) : 0;
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState('');
@@ -697,9 +711,10 @@ function KidCard({
         {(status === 'pending' || status === 'inactive') && hasPaymentMethod && program && (
           <button
             onClick={() => onEnroll(kidIndex)}
-            className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+            disabled={busy}
+            className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {status === 'inactive' ? 'Renew' : 'Enroll Now'}
+            {busy ? 'Processing…' : status === 'inactive' ? 'Renew' : 'Enroll Now'}
           </button>
         )}
 
@@ -722,12 +737,16 @@ function KidCard({
             Payment plan request was not approved
           </p>
         )}
-        {paymentPlanRequest?.status === 'approved' && hasPaymentMethod && program && (paymentPlanRequest.installmentsPaid ?? 0) === 0 && (
+        {/* First plan charge. Gated by kid status (not just installmentsPaid === 0)
+            so it disappears the instant enrollment succeeds — closes the window
+            where a second click would create a second first-installment charge. */}
+        {(status === 'pending' || status === 'inactive') && paymentPlanRequest?.status === 'approved' && hasPaymentMethod && program && installmentsPaid === 0 && (
           <button
             onClick={() => onEnrollWithPlan(kidIndex)}
-            className="block w-full text-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+            disabled={busy}
+            className="block w-full text-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Enroll with Plan ({paymentPlanRequest.installments} payments)
+            {busy ? 'Processing…' : `Enroll with Plan (${paymentPlanRequest.installments} payments)`}
           </button>
         )}
         {paymentPlanRequest?.status === 'approved' && !hasPaymentMethod && (
@@ -736,23 +755,46 @@ function KidCard({
           </p>
         )}
 
-        {/* Pay next installment for active enrolled kids */}
+        {/* Pay next installment (and, when more than one is left, pay it all off)
+            for active enrolled kids on an approved plan. */}
         {status === 'active' && paymentPlanRequest?.status === 'approved' &&
-          hasPaymentMethod &&
-          (paymentPlanRequest.installmentsPaid ?? 0) < paymentPlanRequest.installments && (
-          <button
-            onClick={() => onPayInstallment(kidIndex, paymentPlanRequest.id)}
-            className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
-          >
-            Pay Installment {(paymentPlanRequest.installmentsPaid ?? 0) + 1} of {paymentPlanRequest.installments}
-          </button>
+          hasPaymentMethod && installmentsLeft > 0 && (
+          <>
+            <button
+              onClick={() => onPayInstallment(kidIndex, paymentPlanRequest.id)}
+              disabled={busy}
+              className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy ? 'Processing…' : `Pay Installment ${installmentsPaid + 1} of ${paymentPlanRequest.installments}`}
+            </button>
+            {installmentsLeft > 1 && (
+              <button
+                onClick={() => onPayRemaining(kidIndex, paymentPlanRequest.id)}
+                disabled={busy}
+                className="block w-full text-center rounded-lg border border-indigo-300 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {busy ? 'Processing…' : `Pay remaining balance (${formatPrice(remainingBalance, true)})`}
+              </button>
+            )}
+          </>
         )}
 
         {avatarError && (
           <p className="text-xs text-red-500">{avatarError}</p>
         )}
+        {/* No card on file: give a direct path to add one instead of a dead-end.
+            Only actionable once a program is chosen (enrollment needs both). */}
         {(status === 'pending' || status === 'inactive') && !hasPaymentMethod && !paymentPlanRequest && (
-          <p className="text-xs text-gray-400 text-center">No payment method on file</p>
+          program ? (
+            <button
+              onClick={onAddCard}
+              className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+            >
+              Add card to enroll
+            </button>
+          ) : (
+            <p className="text-xs text-gray-400 text-center">Select a program to enroll</p>
+          )
         )}
         {status === 'pending' && onDelete && (
           <button
@@ -782,59 +824,8 @@ function SettingsModal({
   onPaymentUpdated: () => void;
 }) {
   const [tab, setTab] = useState<'payment' | 'history'>('payment');
-  const [updatingCard, setUpdatingCard] = useState(false);
-  const [cardClientSecret, setCardClientSecret] = useState('');
-  const [cardError, setCardError] = useState('');
-  const [cardSuccess, setCardSuccess] = useState(false);
-  const [cardInfo, setCardInfo] = useState<{ brand: string; last4: string; expMonth: number; expYear: number } | null>(null);
-
-  useEffect(() => {
-    if (!isOpen || !hasPaymentMethod) return;
-    fetch('/api/settings/payment')
-      .then((r) => r.json())
-      .then((d) => setCardInfo(d.card ?? null))
-      .catch(() => setCardInfo(null));
-  }, [isOpen, hasPaymentMethod]);
 
   if (!isOpen) return null;
-
-  const startCardUpdate = async () => {
-    setCardError('');
-    setCardSuccess(false);
-    setUpdatingCard(true);
-    try {
-      const res = await fetch('/api/settings/payment', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        setCardError(data.error ?? 'Could not start card update.');
-        setUpdatingCard(false);
-        return;
-      }
-      setCardClientSecret(data.clientSecret);
-    } catch {
-      setCardError('Something went wrong. Please try again.');
-      setUpdatingCard(false);
-    }
-  };
-
-  const handleCardSaved = async (pmId: string) => {
-    setCardError('');
-    try {
-      const res = await fetch('/api/settings/payment', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethodId: pmId }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setCardError(data.error ?? 'Could not save card.'); return; }
-      setCardSuccess(true);
-      setCardClientSecret('');
-      setUpdatingCard(false);
-      onPaymentUpdated();
-    } catch {
-      setCardError('Something went wrong. Please try again.');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
@@ -867,52 +858,10 @@ function SettingsModal({
         {/* Panel */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'payment' && (
-            <div className="space-y-4">
-              {cardSuccess ? (
-                <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                  ✓ Card updated successfully!
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600">
-                    {hasPaymentMethod
-                      ? 'You have a card saved on file. Use the button below to replace it.'
-                      : 'No payment method on file. Add one to enable purchases and enrollment.'}
-                  </p>
-                  {hasPaymentMethod && cardInfo && (
-                    <div className="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
-                      <div className="text-2xl">
-                        {cardInfo.brand === 'visa' ? '💳' : cardInfo.brand === 'mastercard' ? '💳' : '💳'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900 capitalize">{cardInfo.brand} ···· {cardInfo.last4}</p>
-                        <p className="text-xs text-gray-500">Expires {cardInfo.expMonth}/{cardInfo.expYear}</p>
-                      </div>
-                    </div>
-                  )}
-                  {cardError && <p className="text-sm text-red-600">{cardError}</p>}
-                  {cardClientSecret && stripePromise ? (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{ clientSecret: cardClientSecret, appearance: { theme: 'stripe' } }}
-                    >
-                      <PaymentSetupStep
-                        onSuccess={handleCardSaved}
-                        onBack={() => { setCardClientSecret(''); setUpdatingCard(false); }}
-                      />
-                    </Elements>
-                  ) : (
-                    <button
-                      onClick={startCardUpdate}
-                      disabled={updatingCard}
-                      className="block w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-center"
-                    >
-                      {updatingCard ? 'Loading…' : hasPaymentMethod ? 'Replace Saved Card' : 'Add Payment Method'}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+            <PaymentMethodManager
+              hasPaymentMethod={hasPaymentMethod}
+              onPaymentUpdated={onPaymentUpdated}
+            />
           )}
 
           {tab === 'history' && (
@@ -981,6 +930,8 @@ function FamilyDashboard({
     savedCard?: { brand: string; last4: string } | null;
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addCardOpen, setAddCardOpen] = useState(false);
+  const [view, setView] = useState<'students' | 'shop'>('students');
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [newKid, setNewKid] = useState({ name: '', age: '', rank: 'white', program: '' });
   const [addingKid, setAddingKid] = useState(false);
@@ -996,6 +947,7 @@ function FamilyDashboard({
     e.preventDefault();
     setAddKidError('');
     if (!newKid.name.trim()) { setAddKidError('Name is required.'); return; }
+    if (!newKid.program) { setAddKidError('Please select a program.'); return; }
     setAddingKid(true);
     try {
       const res = await fetch('/api/profile', {
@@ -1114,7 +1066,7 @@ function FamilyDashboard({
 
   const handleEnrollSuccess = async (paymentIntentId: string) => {
     if (!enrollModal) return;
-    const { kidIndex } = enrollModal;
+    const { kidIndex, paymentPlan, amount } = enrollModal;
 
     // Optimistically update UI immediately
     const expiresAt = new Date();
@@ -1123,6 +1075,32 @@ function FamilyDashboard({
       i === kidIndex ? { ...k, status: 'active' as const, expiresAt: expiresAt.toISOString(), stripePaymentIntentId: paymentIntentId } : k,
     );
     onKidsUpdated(updated);
+
+    // For a plan enrollment, optimistically record the first installment too, so
+    // the "Enroll with Plan" button can't reappear (and re-charge) before the
+    // server/webhook confirms. Idempotent server-side via the PaymentIntent id.
+    if (paymentPlan) {
+      const updatedReqs = paymentPlanRequests.map((r) =>
+        r.kidIndex === kidIndex && r.status === 'approved' && (r.installmentsPaid ?? 0) === 0
+          ? {
+              ...r,
+              installmentsPaid: 1,
+              chargeHistory: [
+                ...(r.chargeHistory ?? []),
+                {
+                  installmentNumber: 1,
+                  amount,
+                  method: 'stripe' as const,
+                  status: 'succeeded' as const,
+                  stripePaymentIntentId: paymentIntentId,
+                  chargedAt: new Date().toISOString(),
+                },
+              ],
+            }
+          : r,
+      );
+      onPaymentPlanRequestsUpdated(updatedReqs);
+    }
     setEnrollModal(null);
 
     // Persist to DB — this is the primary write path (webhook is backup)
@@ -1137,7 +1115,7 @@ function FamilyDashboard({
     }
   };
 
-  const handlePayInstallment = async (kidIndex: number, requestId: string) => {
+  const handlePayInstallment = async (kidIndex: number, requestId: string, payRemaining = false) => {
     setPayingInstallment(kidIndex);
     setPayInstallmentError((prev) => ({ ...prev, [kidIndex]: '' }));
     setPayInstallmentSuccess((prev) => ({ ...prev, [kidIndex]: false }));
@@ -1145,7 +1123,7 @@ function FamilyDashboard({
       const res = await fetch('/api/profile/pay-installment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId }),
+        body: JSON.stringify({ requestId, payRemaining }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1227,7 +1205,24 @@ function FamilyDashboard({
           />
         )}
 
-        <ProShop hasPaymentMethod={hasPaymentMethod} />
+        {/* ── Add Card Modal ────────────────────────────────────────────── */}
+        {addCardOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900">Add a payment method</h2>
+                <button type="button" onClick={() => setAddCardOpen(false)}>
+                  <XMarkIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
+                </button>
+              </div>
+              <PaymentMethodManager
+                hasPaymentMethod={hasPaymentMethod}
+                onPaymentUpdated={onPaymentUpdated}
+                onSaved={() => setTimeout(() => setAddCardOpen(false), 1200)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Add Student Modal ─────────────────────────────────────────── */}
         {addStudentOpen && (
@@ -1265,14 +1260,12 @@ function FamilyDashboard({
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="add-student-program" className="text-xs font-medium text-gray-700">Program</label>
-                  <select id="add-student-program" name="student-program" value={newKid.program} onChange={(e) => setNewKid((k) => ({ ...k, program: e.target.value }))}
-                    className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    <option value="">— Select a program —</option>
-                    {PROGRAMS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} · {formatPrice(p.pricePerYear, p.oneTimeFee, p.durationYears)}</option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-medium text-gray-700">Program</label>
+                  <ProgramPicker
+                    idPrefix="add-student-program"
+                    value={newKid.program}
+                    onChange={(programId) => setNewKid((k) => ({ ...k, program: programId }))}
+                  />
                 </div>
                 {addKidError && <p className="text-sm text-red-600">{addKidError}</p>}
                 <div className="flex justify-end gap-3 pt-1">
@@ -1341,16 +1334,40 @@ function FamilyDashboard({
           </div>
         )}
 
-        {kids.length === 0 ? (
+        {/* Tabs: dashboard defaults to the family view; the Pro Shop lives
+            behind its own tab so parents see their kids first. */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex gap-6">
+            {([['students', 'My Students'], ['shop', 'Pro Shop']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setView(key)}
+                className={`py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  view === key
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {view === 'shop' ? (
+          <ProShop hasPaymentMethod={hasPaymentMethod} />
+        ) : kids.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-16">No students on this account yet. Add one above.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {kids.map((kid, i) => (
-              <div key={i} className={enrolling === i || payingInstallment === i ? 'opacity-60 pointer-events-none' : ''}>
+              <div key={i} className={enrolling === i || payingInstallment === i ? 'opacity-60' : ''}>
                 <KidCard
                   kid={kid}
                   kidIndex={i}
                   hasPaymentMethod={hasPaymentMethod}
+                  busy={enrolling === i || payingInstallment === i}
                   paymentPlanRequest={paymentPlanRequests.find(
                     (r) => r.kidIndex === i && (r.status === 'pending' || r.status === 'approved' || r.status === 'rejected'),
                   ) ?? null}
@@ -1359,6 +1376,8 @@ function FamilyDashboard({
                   onEnrollWithPlan={handleEnrollWithPlan}
                   onRequestPlan={(idx) => { setPlanRequestKidIndex(idx); setPlanInstallments(3); setPlanRequestError(''); }}
                   onPayInstallment={handlePayInstallment}
+                  onPayRemaining={(idx, requestId) => handlePayInstallment(idx, requestId, true)}
+                  onAddCard={() => setAddCardOpen(true)}
                   onDelete={handleDeleteKid}
                   onAvatarUpdated={(url) => {
                     const updated = kids.map((k, j) => j === i ? { ...k, avatarUrl: url } : k);

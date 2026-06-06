@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { stripe, assertStripeKey } from '@/lib/stripe';
 import { getUserByUsername, updateUser } from '@/lib/userStore';
+import client from '@/lib/mongodb';
+import type { InstallmentRecord } from '@/lib/types';
+
+const DB = process.env.MONGODB_DATABASE ?? 'tkd';
 
 /**
  * POST /api/profile/enrollment-confirm
@@ -65,7 +69,42 @@ export async function POST(request: Request) {
         : k,
     );
 
-    await updateUser({ ...user, kids: updatedKids });
+    await updateUser({ ...user, kids: updatedKids, paymentPlanRequests: user.paymentPlanRequests });
+
+    // If this enrollment was the first installment of a payment plan, record it
+    // here (the primary path) instead of relying solely on the webhook. The
+    // update is atomic-idempotent: the $elemMatch filter only matches when this
+    // PaymentIntent is not already in the plan's chargeHistory, so a concurrent
+    // webhook delivery cannot double-count it.
+    const meta = pi.metadata ?? {};
+    if (meta.paymentPlan === 'true') {
+      const reqId = meta.planRequestId || (user.paymentPlanRequests ?? []).find(
+        (r) => r.kidIndex === kidIndex && r.status === 'approved',
+      )?.id;
+      if (reqId) {
+        const planReq = (user.paymentPlanRequests ?? []).find((r) => r.id === reqId);
+        const instNum = Number(meta.installmentNumber ?? (planReq?.installmentsPaid ?? 0) + 1);
+        const record: InstallmentRecord = {
+          installmentNumber: instNum,
+          amount: pi.amount ?? 0,
+          method: 'stripe',
+          status: 'succeeded',
+          stripePaymentIntentId: pi.id,
+          chargedAt: new Date().toISOString(),
+        };
+        await client.db(DB).collection('users').updateOne(
+          {
+            username: user.username.toLowerCase().trim(),
+            paymentPlanRequests: { $elemMatch: { id: reqId, 'chargeHistory.stripePaymentIntentId': { $ne: pi.id } } },
+          },
+          {
+            $inc: { 'paymentPlanRequests.$.installmentsPaid': 1 },
+            $push: { 'paymentPlanRequests.$.chargeHistory': { $each: [record] } },
+            $set: { updatedAt: new Date().toISOString() },
+          } as any,
+        );
+      }
+    }
 
     return NextResponse.json({ success: true, expiresAt: expiresAt.toISOString() });
   } catch (err) {
