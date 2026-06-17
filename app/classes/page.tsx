@@ -148,6 +148,7 @@ const ClassesPage: React.FC = () => {
     <div className="bg-gray-800 p-6 rounded-xl">
       <h4 className="text-lg font-bold text-red-400 mb-3">Black Belt Program &mdash; All Levels</h4>
       <p className="text-gray-300"><strong className="text-white">Mon &ndash; Fri:</strong> 5:30 PM</p>
+      <p className="text-sm text-gray-500 mt-1">24-hour notice required</p>
     </div>
 
     <div className="bg-gray-800 p-6 rounded-xl">
