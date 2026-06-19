@@ -14,9 +14,10 @@ export interface PaymentPlanRequest {
   kidIndex: number;
   installments: 3 | 6 | 12;
   installmentsPaid: number;     // how many have been successfully charged
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'revoked';
   requestedAt: string;  // ISO
-  reviewedAt?: string;  // ISO
+  reviewedAt?: string;  // ISO — also used as the revoke timestamp
+  revokedReason?: string;  // admin note captured when a plan is revoked
   chargeHistory?: InstallmentRecord[];
 }
 

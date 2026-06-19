@@ -19,7 +19,7 @@ export async function PATCH(
   const body = await request.json() as { requestId?: string; status?: string; installments?: number };
   const { requestId, status, installments } = body;
 
-  if (!requestId || !['approved', 'rejected', 'pending'].includes(status ?? '')) {
+  if (!requestId || !['approved', 'rejected', 'pending', 'revoked'].includes(status ?? '')) {
     return NextResponse.json({ error: 'requestId and valid status required' }, { status: 400 });
   }
 

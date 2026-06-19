@@ -6,12 +6,14 @@ import { ArrowUpTrayIcon, CheckCircleIcon, TrashIcon, PlusIcon, XMarkIcon, Penci
 import { SHOP_CATEGORIES } from '@/lib/shop-types';
 import type { ShopProduct, ShopCategory } from '@/lib/shop-types';
 import { PROGRAMS } from '@/lib/programs';
+import { missedCount, isPlanBehind, MISSED_PAYMENT_THRESHOLD } from '@/lib/paymentPlan';
 import type { Kid, PaymentPlanRequest, InstallmentRecord } from '@/lib/types';
 
 const REMINDER_OPTIONS = [
   { value: 'finish-signup', label: 'Remember to finish sign up' },
   { value: 'payment-due-soon', label: 'Payment is coming due' },
   { value: 'payment-past-due', label: 'Payment is past due' },
+  { value: 'payment-plan-consecutive', label: 'Payment plan must be consecutive' },
 ];
 
 const BELT_OPTIONS = [
@@ -561,6 +563,15 @@ export default function AdminPage() {
   } | null>(null);
   const [planReviewLoading, setPlanReviewLoading] = useState(false);
 
+  const [revokeModal, setRevokeModal] = useState<{
+    userId: string;
+    requestId: string;
+    studentName: string;
+    balanceText: string;
+  } | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [revokeLoading, setRevokeLoading] = useState(false);
+
   const [cashCreditModal, setCashCreditModal] = useState<{
     userId: string;
     requestId: string;
@@ -690,6 +701,43 @@ export default function AdminPage() {
       setError('Failed to update payment plan.');
     } finally {
       setPlanReviewLoading(false);
+    }
+  };
+
+  const handleRevokePlan = async () => {
+    if (!revokeModal) return;
+    const { userId, requestId } = revokeModal;
+    setRevokeLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/payment-plan/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, reason: revokeReason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            if (u.id !== userId) return u;
+            return {
+              ...u,
+              paymentPlanRequests: (u.paymentPlanRequests ?? []).map((r) =>
+                r.id === requestId
+                  ? { ...r, status: 'revoked', reviewedAt: new Date().toISOString(), revokedReason: revokeReason.trim() || undefined }
+                  : r,
+              ),
+            };
+          }),
+        );
+        setRevokeModal(null);
+        setRevokeReason('');
+      } else {
+        setError(data.error ?? 'Failed to revoke payment plan.');
+      }
+    } catch {
+      setError('Failed to revoke payment plan.');
+    } finally {
+      setRevokeLoading(false);
     }
   };
 
@@ -1478,6 +1526,8 @@ export default function AdminPage() {
                                   const cashCount = (req.chargeHistory ?? []).filter((e) => e.method === 'cash' && e.status === 'succeeded').length;
                                   const cardCount = (req.chargeHistory ?? []).filter((e) => e.method === 'stripe' && e.status === 'succeeded').length;
                                   const remainingBalance = remaining * installmentAmt;
+                                  const missed = missedCount(req);
+                                  const behind = isPlanBehind(req);
                                   return (
                                     <div key={req.id} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 flex flex-col gap-2">
                                       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1496,6 +1546,12 @@ export default function AdminPage() {
                                             </span>
                                             {remaining > 0 && installmentAmt > 0 && (
                                               <span className="text-xs text-amber-600 font-medium">Balance: ${(remainingBalance / 100).toFixed(2)}</span>
+                                            )}
+                                            {behind && (
+                                              <span className="text-xs font-semibold text-red-600">
+                                                Behind — {missed} missed
+                                                {missed >= MISSED_PAYMENT_THRESHOLD && ' · eligible to revoke'}
+                                              </span>
                                             )}
                                           </div>
                                           <p className="text-xs text-gray-400 mt-0.5">
@@ -1526,14 +1582,16 @@ export default function AdminPage() {
                                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                                                 req.status === 'approved'
                                                   ? 'bg-green-50 text-green-700 border border-green-200'
+                                                  : req.status === 'revoked'
+                                                  ? 'bg-orange-50 text-orange-700 border border-orange-200'
                                                   : 'bg-red-50 text-red-700 border border-red-200'
                                               }`}>
                                                 {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
                                               </span>
-                                              {req.status === 'rejected' && (
+                                              {(req.status === 'rejected' || req.status === 'revoked') && (
                                                 <button
                                                   type="button"
-                                                  onClick={() => handlePlanReview(user.id, req.id, 'pending')}
+                                                  onClick={() => handlePlanReview(user.id, req.id, req.status === 'revoked' ? 'approved' : 'pending')}
                                                   className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                                                 >
                                                   Restore
@@ -1570,6 +1628,21 @@ export default function AdminPage() {
                                               className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                                             >
                                               Credit Cash Payment
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setRevokeModal({
+                                                  userId: user.id,
+                                                  requestId: req.id,
+                                                  studentName: kid?.name ?? `Student #${req.kidIndex + 1}`,
+                                                  balanceText: remainingBalance > 0 ? `$${(remainingBalance / 100).toFixed(2)}` : '',
+                                                });
+                                                setRevokeReason('');
+                                              }}
+                                              className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                            >
+                                              Revoke Plan
                                             </button>
                                           </div>
                                           {chargeSuccess[req.id] && (
@@ -1886,6 +1959,53 @@ export default function AdminPage() {
                 {planReviewLoading
                   ? 'Saving…'
                   : planReviewModal.action === 'approved' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Plan Modal */}
+      {revokeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-900">Revoke Payment Plan</h2>
+              <button type="button" onClick={() => setRevokeModal(null)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Revoke the payment plan for <strong>{revokeModal.studentName}</strong>? This stops all
+              future charges and emails the parent (and admin) that the outstanding balance
+              {revokeModal.balanceText ? <> of <strong>{revokeModal.balanceText}</strong></> : null} is
+              due before training may continue. You can restore the plan later.
+            </p>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Reason (optional, internal)</label>
+              <input
+                type="text"
+                value={revokeReason}
+                onChange={(e) => setRevokeReason(e.target.value)}
+                placeholder="e.g. 3 consecutive missed payments"
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRevokeModal(null)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={revokeLoading}
+                onClick={handleRevokePlan}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {revokeLoading ? 'Revoking…' : 'Revoke & Notify'}
               </button>
             </div>
           </div>

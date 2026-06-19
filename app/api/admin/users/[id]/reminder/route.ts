@@ -7,7 +7,7 @@ import { sendReminderEmail } from '@/lib/email';
 const DB = process.env.MONGODB_DATABASE ?? 'tkd';
 const col = () => client.db(DB).collection('users');
 
-const VALID_TYPES = ['finish-signup', 'payment-due-soon', 'payment-past-due'];
+const VALID_TYPES = ['finish-signup', 'payment-due-soon', 'payment-past-due', 'payment-plan-consecutive'];
 
 /** Generates a short, easy-to-read temporary password (no ambiguous chars). */
 function generateTempPassword(): string {

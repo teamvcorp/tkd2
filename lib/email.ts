@@ -58,9 +58,11 @@ const REMINDER_SUBJECTS: Record<string, string> = {
   'finish-signup': 'Complete Your Enrollment – Taekwondo of Storm Lake',
   'payment-due-soon': 'Upcoming Payment Reminder – Taekwondo of Storm Lake',
   'payment-past-due': 'Action Required: Past Due Payment – Taekwondo of Storm Lake',
+  'payment-plan-consecutive': 'Keep Your Payment Plan on Track – Taekwondo of Storm Lake',
+  'payment-plan-revoked': 'Important: Your Payment Plan Has Been Cancelled – Taekwondo of Storm Lake',
 };
 
-const REMINDER_BODIES: Record<string, (parentName: string) => string> = {
+const REMINDER_BODIES: Record<string, (parentName: string, balanceText?: string) => string> = {
   'finish-signup': (parentName) => `
     <p>Dear ${parentName},</p>
     <p>We noticed that your enrollment with <strong>Taekwondo of Storm Lake</strong> is not yet complete. We'd love to have your family join us on the mat!</p>
@@ -82,6 +84,20 @@ const REMINDER_BODIES: Record<string, (parentName: string) => string> = {
     <p>If you believe this is an error, or if you'd like to discuss a payment arrangement, please reply to this email and we will be happy to assist you.</p>
     <p>Thank you for your prompt attention to this matter.</p>
   `,
+  'payment-plan-consecutive': (parentName) => `
+    <p>Dear ${parentName},</p>
+    <p>This is a friendly reminder that payment plans with <strong>Taekwondo of Storm Lake</strong> are meant to be paid <strong>consecutively</strong> — one installment each month. Missing a scheduled payment breaks the arrangement and may put your plan at risk of cancellation.</p>
+    <p>Our records show a scheduled payment has not yet been made. Please log in to your account to bring your plan up to date and avoid any interruption to training.</p>
+    <p>If your family has more than one student on a payment plan, keeping <strong>one</strong> plan paid consecutively is enough to remain in good standing for all of them.</p>
+    <p>If you have any questions or would like to discuss your arrangement, just reply to this email — we're happy to help.</p>
+  `,
+  'payment-plan-revoked': (parentName, balanceText) => `
+    <p>Dear ${parentName},</p>
+    <p>We're writing to let you know that, due to missed payments, your payment plan with <strong>Taekwondo of Storm Lake</strong> has been <strong>cancelled</strong>.</p>
+    <p>The remaining balance${balanceText ? ` of <strong>${balanceText}</strong>` : ''} is now due in full. <strong>Training may continue once the outstanding balance has been settled.</strong></p>
+    <p>We understand circumstances come up. Please reply to this email or call us so we can help you settle the balance and get your student back on the mat as soon as possible.</p>
+    <p>Thank you for your understanding.</p>
+  `,
 };
 
 interface ReminderEmailParams {
@@ -92,18 +108,23 @@ interface ReminderEmailParams {
    *  with the user's login email and this one-time password. The caller is
    *  responsible for hashing & persisting the same password on the user record. */
   tempPassword?: string;
+  /** When set for `payment-plan-revoked`, the formatted outstanding balance
+   *  (e.g. "$450.00") shown as the amount now due in full. */
+  balanceText?: string;
 }
 
-export async function sendReminderEmail({ parentName, userEmail, reminderType, tempPassword }: ReminderEmailParams) {
+export async function sendReminderEmail({ parentName, userEmail, reminderType, tempPassword, balanceText }: ReminderEmailParams) {
   const subject = REMINDER_SUBJECTS[reminderType];
   const bodyFn = REMINDER_BODIES[reminderType];
   if (!subject || !bodyFn) throw new Error('Invalid reminder type');
 
-  const bodyHtml = bodyFn(parentName);
+  const bodyHtml = bodyFn(parentName, balanceText);
   const reminderLabel = {
     'finish-signup': 'Finish Sign Up',
     'payment-due-soon': 'Payment Coming Due',
     'payment-past-due': 'Payment Past Due',
+    'payment-plan-consecutive': 'Consecutive Payment Reminder',
+    'payment-plan-revoked': 'Payment Plan Cancelled',
   }[reminderType] ?? reminderType;
 
   // Login URL: use NEXTAUTH_URL when set, else fall back to the production
