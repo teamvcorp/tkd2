@@ -768,6 +768,33 @@ export default function AdminPage() {
     }
   };
 
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  const handleDeleteUser = async (user: AdminUser) => {
+    if (
+      !window.confirm(
+        `Permanently delete ${user.parentName} (@${user.username})? This removes the account completely and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingUserId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u.id !== user.id));
+        setExpandedUserId(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? 'Failed to delete user.');
+      }
+    } catch {
+      setError('Failed to delete user.');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   const startEditingKids = (user: AdminUser) => {
     setEditingKids((prev) => ({
       ...prev,
@@ -1805,6 +1832,17 @@ export default function AdminPage() {
                               >
                                 {user.archived ? 'Unarchive' : 'Archive'}
                               </button>
+                              {user.archived && (
+                                <button
+                                  type="button"
+                                  disabled={deletingUserId === user.id}
+                                  onClick={() => handleDeleteUser(user)}
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                  {deletingUserId === user.id ? 'Deleting…' : 'Delete Permanently'}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

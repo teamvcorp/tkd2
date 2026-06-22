@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const docs = await col()
     .find(
-      { 'paymentPlanRequests.status': 'approved' },
+      { 'paymentPlanRequests.status': 'approved', archived: { $ne: true } },
       { projection: { _id: 0 } },
     )
     .toArray();

@@ -41,3 +41,36 @@ export async function PATCH(
 
   return NextResponse.json({ success: true });
 }
+
+/**
+ * Permanently delete a user. Guarded so only *archived* users can be removed —
+ * this is the cleanup path for accounts that should no longer exist at all (and
+ * therefore should stop receiving reminder emails). Active users must be
+ * archived first, which keeps accidental deletion of paying members impossible
+ * with a single click.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const user = await col().findOne({ id }, { projection: { _id: 0, archived: 1 } });
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  if (!user.archived) {
+    return NextResponse.json(
+      { error: 'Archive this user before deleting them.' },
+      { status: 409 },
+    );
+  }
+
+  await col().deleteOne({ id });
+
+  return NextResponse.json({ success: true });
+}
