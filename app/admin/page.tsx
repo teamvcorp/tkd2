@@ -563,6 +563,15 @@ export default function AdminPage() {
   } | null>(null);
   const [planReviewLoading, setPlanReviewLoading] = useState(false);
 
+  // Admin-initiated plan creation (arranged in person / by phone). Creates an
+  // already-approved plan and emails the parent a confirmation.
+  const [createPlanModal, setCreatePlanModal] = useState<{
+    userId: string;
+    kidIndex: number;
+    installments: 3 | 6 | 12;
+  } | null>(null);
+  const [createPlanLoading, setCreatePlanLoading] = useState(false);
+
   const [revokeModal, setRevokeModal] = useState<{
     userId: string;
     requestId: string;
@@ -701,6 +710,36 @@ export default function AdminPage() {
       setError('Failed to update payment plan.');
     } finally {
       setPlanReviewLoading(false);
+    }
+  };
+
+  const handleCreatePlan = async () => {
+    if (!createPlanModal) return;
+    const { userId, kidIndex, installments } = createPlanModal;
+    setCreatePlanLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/payment-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kidIndex, installments }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? { ...u, paymentPlanRequests: [...(u.paymentPlanRequests ?? []), data.request as PaymentPlanRequest] }
+              : u,
+          ),
+        );
+        setCreatePlanModal(null);
+      } else {
+        setError(data.error ?? 'Failed to create payment plan.');
+      }
+    } catch {
+      setError('Failed to create payment plan.');
+    } finally {
+      setCreatePlanLoading(false);
     }
   };
 
@@ -1511,11 +1550,28 @@ export default function AdminPage() {
                           </div>
 
                           {/* Payment Plans */}
-                          {(user.paymentPlanRequests ?? []).length > 0 && (
-                            <div className="mb-5 pb-4 border-b border-gray-100">
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Plans</span>
-                              </div>
+                          <div className="mb-5 pb-4 border-b border-gray-100">
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Plans</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const firstWithProgram = user.kids.findIndex((k) => !!k.program);
+                                  setCreatePlanModal({
+                                    userId: user.id,
+                                    kidIndex: firstWithProgram >= 0 ? firstWithProgram : 0,
+                                    installments: 3,
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                              >
+                                <PlusIcon className="w-3.5 h-3.5" />
+                                Add Payment Plan
+                              </button>
+                            </div>
+                            {(user.paymentPlanRequests ?? []).length === 0 && (
+                              <p className="text-xs text-gray-400">No payment plans yet.</p>
+                            )}
                               {/* Parent-level summary */}
                               {(() => {
                                 const approved = (user.paymentPlanRequests ?? []).filter((r) => r.status === 'approved');
@@ -1723,8 +1779,7 @@ export default function AdminPage() {
                                   );
                                 })}
                               </div>
-                            </div>
-                          )}
+                          </div>
 
                           {/* Kids editing */}
                           <div>
@@ -1955,6 +2010,93 @@ export default function AdminPage() {
       )}
 
       {/* Plan Review Modal */}
+      {/* Create Payment Plan Modal */}
+      {createPlanModal && (() => {
+        const planUser = users.find((u) => u.id === createPlanModal.userId);
+        const selectedKid = planUser?.kids[createPlanModal.kidIndex];
+        const prog = PROGRAMS.find((p) => p.id === selectedKid?.program);
+        const installmentAmt = prog ? Math.round(prog.pricePerYear / createPlanModal.installments) : 0;
+        const total = installmentAmt * createPlanModal.installments;
+        const canCreate = !!prog && !createPlanLoading;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900">Create Payment Plan</h2>
+                <button type="button" onClick={() => setCreatePlanModal(null)} className="text-gray-400 hover:text-gray-600">
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Student</label>
+                <select
+                  value={createPlanModal.kidIndex}
+                  onChange={(e) => setCreatePlanModal((prev) => prev ? { ...prev, kidIndex: Number(e.target.value) } : prev)}
+                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {(planUser?.kids ?? []).map((k, i) => {
+                    const kp = PROGRAMS.find((p) => p.id === k.program);
+                    return (
+                      <option key={i} value={i}>
+                        {k.name || `Student #${i + 1}`}{kp ? ` — ${kp.name}` : ' — no program'}
+                      </option>
+                    );
+                  })}
+                  {(planUser?.kids ?? []).length === 0 && <option value={0}>No students</option>}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Number of Payments</label>
+                <select
+                  value={createPlanModal.installments}
+                  onChange={(e) => setCreatePlanModal((prev) => prev ? { ...prev, installments: Number(e.target.value) as 3 | 6 | 12 } : prev)}
+                  className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value={3}>3 payments</option>
+                  <option value={6}>6 payments</option>
+                  <option value={12}>12 payments</option>
+                </select>
+              </div>
+
+              {prog ? (
+                <div className="mb-5 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800 font-medium">
+                  ${(installmentAmt / 100).toFixed(2)} per month &times; {createPlanModal.installments} payments
+                  <span className="block text-xs font-normal text-green-700">${(total / 100).toFixed(2)} total · plan starts today</span>
+                </div>
+              ) : (
+                <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                  Assign a program to this student before creating a payment plan.
+                </div>
+              )}
+
+              <p className="mb-4 text-xs text-gray-500">
+                Creates an <strong>approved</strong> plan and emails {planUser?.parentName || 'the parent'} a confirmation with the schedule.
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreatePlanModal(null)}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!canCreate}
+                  onClick={handleCreatePlan}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  {createPlanLoading ? 'Creating…' : 'Create plan & email parent'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {planReviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">

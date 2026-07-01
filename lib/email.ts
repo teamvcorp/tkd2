@@ -60,9 +60,20 @@ const REMINDER_SUBJECTS: Record<string, string> = {
   'payment-past-due': 'Action Required: Past Due Payment – Taekwondo of Storm Lake',
   'payment-plan-consecutive': 'Keep Your Payment Plan on Track – Taekwondo of Storm Lake',
   'payment-plan-revoked': 'Important: Your Payment Plan Has Been Cancelled – Taekwondo of Storm Lake',
+  'payment-plan-created': 'Your Payment Plan Is Set Up – Taekwondo of Storm Lake',
 };
 
-const REMINDER_BODIES: Record<string, (parentName: string, balanceText?: string) => string> = {
+/** Extra, type-specific values a reminder body may need. Kept as one options
+ *  object so adding a new field doesn't churn every template's signature. */
+interface ReminderBodyExtras {
+  /** Formatted outstanding balance (e.g. "$450.00"), used by `payment-plan-revoked`. */
+  balanceText?: string;
+  /** Formatted plan summary (e.g. "$300.00 per month × 3 payments ($900.00 total)"),
+   *  used by `payment-plan-created`. */
+  planText?: string;
+}
+
+const REMINDER_BODIES: Record<string, (parentName: string, extras?: ReminderBodyExtras) => string> = {
   'finish-signup': (parentName) => `
     <p>Dear ${parentName},</p>
     <p>We noticed that your enrollment with <strong>Taekwondo of Storm Lake</strong> is not yet complete. We'd love to have your family join us on the mat!</p>
@@ -91,12 +102,20 @@ const REMINDER_BODIES: Record<string, (parentName: string, balanceText?: string)
     <p>If your family has more than one student on a payment plan, keeping <strong>one</strong> plan paid consecutively is enough to remain in good standing for all of them.</p>
     <p>If you have any questions or would like to discuss your arrangement, just reply to this email — we're happy to help.</p>
   `,
-  'payment-plan-revoked': (parentName, balanceText) => `
+  'payment-plan-revoked': (parentName, extras) => `
     <p>Dear ${parentName},</p>
     <p>We're writing to let you know that, due to missed payments, your payment plan with <strong>Taekwondo of Storm Lake</strong> has been <strong>cancelled</strong>.</p>
-    <p>The remaining balance${balanceText ? ` of <strong>${balanceText}</strong>` : ''} is now due in full. <strong>Training may continue once the outstanding balance has been settled.</strong></p>
+    <p>The remaining balance${extras?.balanceText ? ` of <strong>${extras.balanceText}</strong>` : ''} is now due in full. <strong>Training may continue once the outstanding balance has been settled.</strong></p>
     <p>We understand circumstances come up. Please reply to this email or call us so we can help you settle the balance and get your student back on the mat as soon as possible.</p>
     <p>Thank you for your understanding.</p>
+  `,
+  'payment-plan-created': (parentName, extras) => `
+    <p>Dear ${parentName},</p>
+    <p>Good news — a payment plan has been set up for your family with <strong>Taekwondo of Storm Lake</strong>.</p>
+    ${extras?.planText ? `<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-weight:600;color:#166534">${extras.planText}</p>` : ''}
+    <p>Installments are paid <strong>monthly</strong> — one payment each month until the plan is complete. To keep your plan in good standing, please make each payment on schedule.</p>
+    <p>You can review your plan and make payments any time by logging in to your account. If anything looks off or you'd like to discuss the arrangement, just reply to this email — we're happy to help.</p>
+    <p>Welcome aboard, and we look forward to seeing you on the mat!</p>
   `,
 };
 
@@ -111,20 +130,24 @@ interface ReminderEmailParams {
   /** When set for `payment-plan-revoked`, the formatted outstanding balance
    *  (e.g. "$450.00") shown as the amount now due in full. */
   balanceText?: string;
+  /** When set for `payment-plan-created`, the formatted plan summary
+   *  (e.g. "$300.00 per month × 3 payments ($900.00 total)"). */
+  planText?: string;
 }
 
-export async function sendReminderEmail({ parentName, userEmail, reminderType, tempPassword, balanceText }: ReminderEmailParams) {
+export async function sendReminderEmail({ parentName, userEmail, reminderType, tempPassword, balanceText, planText }: ReminderEmailParams) {
   const subject = REMINDER_SUBJECTS[reminderType];
   const bodyFn = REMINDER_BODIES[reminderType];
   if (!subject || !bodyFn) throw new Error('Invalid reminder type');
 
-  const bodyHtml = bodyFn(parentName, balanceText);
+  const bodyHtml = bodyFn(parentName, { balanceText, planText });
   const reminderLabel = {
     'finish-signup': 'Finish Sign Up',
     'payment-due-soon': 'Payment Coming Due',
     'payment-past-due': 'Payment Past Due',
     'payment-plan-consecutive': 'Consecutive Payment Reminder',
     'payment-plan-revoked': 'Payment Plan Cancelled',
+    'payment-plan-created': 'Payment Plan Set Up',
   }[reminderType] ?? reminderType;
 
   // Login URL: use NEXTAUTH_URL when set, else fall back to the production
