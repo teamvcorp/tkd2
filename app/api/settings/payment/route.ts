@@ -55,9 +55,12 @@ export async function POST() {
       return NextResponse.json({ error: 'No Stripe customer on file.' }, { status: 400 });
     }
 
+    // Card-only + off_session so the saved method is guaranteed reusable for
+    // automatic monthly installments charged later off-session.
     const setupIntent = await stripe.setupIntents.create({
       customer: user.stripeCustomerId,
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: ['card'],
+      usage: 'off_session',
       metadata: { username },
     });
 

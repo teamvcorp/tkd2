@@ -94,9 +94,13 @@ export async function POST(request: Request) {
         metadata: { username: cleanUsername, userId: newUser.id },
       });
 
+      // Card-only + off_session so the saved method is guaranteed reusable for
+      // the automatic monthly installments an admin charges later. (BNPL/Link
+      // etc. can't be charged off-session and would break payment plans.)
       const setupIntent = await stripe.setupIntents.create({
         customer: customer.id,
-        automatic_payment_methods: { enabled: true },
+        payment_method_types: ['card'],
+        usage: 'off_session',
         metadata: { username: cleanUsername, userId: newUser.id },
       });
 
