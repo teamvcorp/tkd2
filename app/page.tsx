@@ -1,19 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image';
 import ThreeColumnSection from './components/threeColumn';
-
-const HERO_IMAGES = [
-  '/group.png',
-  '/group1.png',
-  '/group2.png',
-  // Add more here as you drop them into /public, e.g. '/group3.png'
-];
+import HeroMedia from './components/HeroMedia';
 
 export default function Example() {
   const [showAdmin, setShowAdmin] = useState(false);
-  const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -25,14 +17,6 @@ export default function Example() {
       window.removeEventListener('keydown', handle);
       window.removeEventListener('keyup', handle);
     };
-  }, []);
-
-  useEffect(() => {
-    if (HERO_IMAGES.length <= 1) return;
-    const id = setInterval(() => {
-      setHeroIndex((i) => (i + 1) % HERO_IMAGES.length);
-    }, 5000);
-    return () => clearInterval(id);
   }, []);
 
   return (
@@ -69,23 +53,7 @@ export default function Example() {
 
             </div>
           </div>
-          <div className="relative mt-16 lg:mt-8 w-full lg:w-[1000px] lg:flex-none">
-            <div className="relative w-full aspect-[2/1]">
-              {HERO_IMAGES.map((src, i) => (
-                <Image
-                  key={src}
-                  alt="Hawthorne TKD"
-                  src={src}
-                  fill
-                  priority={i === 0}
-                  sizes="(max-width: 1024px) 100vw, 1000px"
-                  className={`object-contain transition-opacity duration-1000 ease-in-out ${
-                    i === heroIndex ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <HeroMedia />
         </div>
       </div>
       <div className="bg-gray-100">
