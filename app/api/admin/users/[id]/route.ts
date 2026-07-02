@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import client from '@/lib/mongodb';
+import { stripe } from '@/lib/stripe';
 import type { Kid } from '@/lib/types';
 
 const DB = process.env.MONGODB_DATABASE ?? 'tkd';
@@ -43,11 +44,13 @@ export async function PATCH(
 }
 
 /**
- * Permanently delete a user. Guarded so only *archived* users can be removed —
- * this is the cleanup path for accounts that should no longer exist at all (and
- * therefore should stop receiving reminder emails). Active users must be
- * archived first, which keeps accidental deletion of paying members impossible
- * with a single click.
+ * Permanently and fully delete a user account.
+ *
+ * Kids and payment-plan history are embedded in the user document, so removing
+ * the document removes them too. The linked Stripe customer is deleted on a
+ * best-effort basis so the email can be reused cleanly and no orphaned customer
+ * is left behind. This is a hard delete with no archive requirement — the admin
+ * UI gates it behind a typed confirmation.
  */
 export async function DELETE(
   _request: Request,
@@ -59,18 +62,23 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const user = await col().findOne({ id }, { projection: { _id: 0, archived: 1 } });
+  const user = await col().findOne({ id }, { projection: { _id: 0, stripeCustomerId: 1 } });
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
-  if (!user.archived) {
-    return NextResponse.json(
-      { error: 'Archive this user before deleting them.' },
-      { status: 409 },
-    );
-  }
 
   await col().deleteOne({ id });
+
+  // Best-effort Stripe cleanup: a failure here must not leave the Mongo record
+  // (already gone) out of sync — the account is considered deleted regardless.
+  const customerId = (user as { stripeCustomerId?: string }).stripeCustomerId;
+  if (customerId) {
+    try {
+      await stripe.customers.del(customerId);
+    } catch (err) {
+      console.error(`admin delete: Stripe customer cleanup failed for ${customerId}`, err);
+    }
+  }
 
   return NextResponse.json({ success: true });
 }

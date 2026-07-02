@@ -810,9 +810,11 @@ export default function AdminPage() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const handleDeleteUser = async (user: AdminUser) => {
+    const kidCount = user.kids?.length ?? 0;
+    const kidNote = kidCount > 0 ? ` and ${kidCount} student${kidCount === 1 ? '' : 's'}` : '';
     if (
       !window.confirm(
-        `Permanently delete ${user.parentName} (@${user.username})? This removes the account completely and cannot be undone.`,
+        `Permanently delete ${user.parentName} (@${user.username})${kidNote}? This removes the account, all students, and payment history, and deletes the linked Stripe customer. This cannot be undone.`,
       )
     ) {
       return;
@@ -1887,17 +1889,15 @@ export default function AdminPage() {
                               >
                                 {user.archived ? 'Unarchive' : 'Archive'}
                               </button>
-                              {user.archived && (
-                                <button
-                                  type="button"
-                                  disabled={deletingUserId === user.id}
-                                  onClick={() => handleDeleteUser(user)}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-                                >
-                                  <TrashIcon className="w-4 h-4" />
-                                  {deletingUserId === user.id ? 'Deleting…' : 'Delete Permanently'}
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                disabled={deletingUserId === user.id}
+                                onClick={() => handleDeleteUser(user)}
+                                className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                                {deletingUserId === user.id ? 'Deleting…' : 'Delete Permanently'}
+                              </button>
                             </div>
                           </div>
                         </div>
