@@ -25,6 +25,8 @@ interface KidFormData {
   age: string;
   rank: string;
   program: string;
+  /** true = automatic monthly payments (12); false = pay in full. */
+  autoPay: boolean;
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -241,23 +243,34 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
   // Step 3
   const [kids, setKids] = useState<KidFormData[]>([
-    { name: '', age: '', rank: 'white', program: '' },
+    { name: '', age: '', rank: 'white', program: '', autoPay: false },
   ]);
 
   // Step 4 – Stripe (populated after /api/register returns)
   const [clientSecret, setClientSecret] = useState('');
-  // If true, registration completes WITHOUT presenting the Stripe step. The
-  // user can add a card later from /members. This is here to address members
-  // who feel uneasy entering card info during sign-up.
-  const [skipPayment, setSkipPayment] = useState(false);
+  // Finalization: after the card is saved we charge each student per their
+  // sign-up payment choice (pay in full / first of 12). These drive the
+  // status + any per-student failures shown on step 4.
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeMsg, setFinalizeMsg] = useState('');
+  const [finalizeErrors, setFinalizeErrors] = useState<string[]>([]);
 
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
-  const addKid    = () => setKids((prev) => [...prev, { name: '', age: '', rank: 'white', program: '' }]);
+  const addKid    = () => setKids((prev) => [...prev, { name: '', age: '', rank: 'white', program: '', autoPay: false }]);
   const removeKid = (i: number) => setKids((prev) => prev.filter((_, idx) => idx !== i));
   const updateKid = (i: number, field: keyof KidFormData, value: string) =>
     setKids((prev) => prev.map((k, idx) => (idx === i ? { ...k, [field]: value } : k)));
+  const setKidProgram = (i: number, programId: string) =>
+    setKids((prev) => prev.map((k, idx) => {
+      if (idx !== i) return k;
+      // One-time-fee programs can't be paid monthly — force pay-in-full.
+      const p = getProgramById(programId);
+      return { ...k, program: programId, autoPay: p?.oneTimeFee ? false : k.autoPay };
+    }));
+  const setKidAutoPay = (i: number, autoPay: boolean) =>
+    setKids((prev) => prev.map((k, idx) => (idx === i ? { ...k, autoPay } : k)));
 
   // ── Step 1 ──────────────────────────────────────────────────────────────────
   const handleStep1 = (e: React.FormEvent) => {
@@ -296,15 +309,8 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Registration failed.'); setLoading(false); return; }
 
-      // Sign in so the PATCH /api/settings/payment call on step 4 is authenticated.
+      // Sign in so the payment calls on step 4 are authenticated.
       await signIn('credentials', { username, password, redirect: false });
-
-      // User chose "add payment later" — land them on the members dashboard.
-      // Their Mongo row is already created with registrationStatus='pending-payment'.
-      if (skipPayment) {
-        window.location.href = '/members';
-        return;
-      }
 
       if (!data.clientSecret) {
         // Stripe leg failed but user exists; surface the error and stop here.
@@ -323,8 +329,18 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   };
 
   // ── Step 4 callback (from PaymentSetupStep) ──────────────────────────────────
+  // The card is now saved. Finalize by enrolling + charging each student per the
+  // payment choice made on step 3: pay-in-full charges the full price now, and
+  // monthly charges installment 1 of 12 now (creating the approved plan). We
+  // reuse the same /api/stripe/enroll → confirm → /api/profile/enrollment-confirm
+  // path the dashboard uses. A declined card for one student doesn't block the
+  // others; failures are surfaced so the parent can retry from the dashboard.
   const handlePaymentSaved = async (pmId: string) => {
-    setLoading(true);
+    setFinalizing(true);
+    setFinalizeMsg('Saving your card…');
+    setError('');
+
+    // Persist the saved card first — enroll reads it from the user record.
     try {
       await fetch('/api/settings/payment', {
         method: 'PATCH',
@@ -332,11 +348,52 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         body: JSON.stringify({ paymentMethodId: pmId }),
       });
     } catch {
-      // Non-fatal: user is signed in; admin can re-collect if PATCH failed.
-    } finally {
-      setLoading(false);
+      // Non-fatal: continue; a failed enroll below will surface an error.
     }
-    // Session was already established at end of step 3.
+
+    const stripe = await stripePromise;
+    if (!stripe) {
+      // No Stripe.js — card is saved; let them finish enrolling on the dashboard.
+      window.location.href = '/members';
+      return;
+    }
+
+    const errors: string[] = [];
+    for (let i = 0; i < kids.length; i++) {
+      const label = kids[i].name.trim() || `Student ${i + 1}`;
+      setFinalizeMsg(`Enrolling ${label}…`);
+      try {
+        const res = await fetch('/api/stripe/enroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kidIndex: i, autoPay: kids[i].autoPay }),
+        });
+        const data = await res.json();
+        if (!res.ok) { errors.push(`${label}: ${data.error ?? 'enrollment failed'}`); continue; }
+
+        // Saved card is already attached server-side — just confirm it.
+        const { error: sErr, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret);
+        if (sErr) { errors.push(`${label}: ${sErr.message ?? 'payment failed'}`); continue; }
+        if (paymentIntent?.status === 'succeeded') {
+          await fetch('/api/profile/enrollment-confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kidIndex: i, paymentIntentId: paymentIntent.id }),
+          });
+        } else {
+          errors.push(`${label}: payment ${paymentIntent?.status ?? 'was not completed'}`);
+        }
+      } catch {
+        errors.push(`${label}: something went wrong`);
+      }
+    }
+
+    if (errors.length > 0) {
+      setFinalizeErrors(errors);
+      setFinalizing(false);
+    } else {
+      window.location.href = '/members';
+    }
   };
 
   return (
@@ -451,9 +508,64 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
                     <ProgramPicker
                       idPrefix={`kid-${idx}-program`}
                       value={kid.program}
-                      onChange={(programId) => updateKid(idx, 'program', programId)}
+                      onChange={(programId) => setKidProgram(idx, programId)}
                     />
                   </div>
+
+                  {/* Payment choice — shown once a program (and therefore a
+                      price) is selected, so it's clear what the card will be
+                      charged. Monthly is hidden for one-time-fee programs. */}
+                  {(() => {
+                    const prog = getProgramById(kid.program);
+                    if (!prog) return null;
+                    const monthly = Math.round(prog.pricePerYear / 12);
+                    return (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">How would you like to pay?</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setKidAutoPay(idx, false)}
+                            aria-pressed={!kid.autoPay}
+                            className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                              !kid.autoPay
+                                ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50'
+                                : 'border-gray-200 bg-white hover:border-indigo-300'
+                            }`}
+                          >
+                            <span className="block text-xs font-semibold text-gray-900">Pay in full</span>
+                            <span className="block text-sm font-bold text-indigo-700">{formatPrice(prog.pricePerYear, true)}</span>
+                            <span className="block text-[11px] text-gray-500">charged today</span>
+                          </button>
+                          {prog.oneTimeFee ? (
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-400 flex items-center">
+                              Monthly plan not available for this program
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setKidAutoPay(idx, true)}
+                              aria-pressed={kid.autoPay}
+                              className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                                kid.autoPay
+                                  ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50'
+                                  : 'border-gray-200 bg-white hover:border-indigo-300'
+                              }`}
+                            >
+                              <span className="block text-xs font-semibold text-gray-900">Monthly payments</span>
+                              <span className="block text-sm font-bold text-indigo-700">{formatPrice(monthly, true)}/mo × 12</span>
+                              <span className="block text-[11px] text-gray-500">first payment today</span>
+                            </button>
+                          )}
+                        </div>
+                        {kid.autoPay && !prog.oneTimeFee && (
+                          <p className="mt-1 text-[11px] text-gray-500">
+                            If 3 monthly payments are missed or late, the entire remaining balance becomes due.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
               <button type="button" onClick={addKid} className={btnSecondary}>+ Add Another Student</button>
@@ -461,47 +573,54 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            {/* Payment-later toggle. Lets uneasy users finish sign-up and add
-                a card from the members dashboard before enrollment. */}
-            <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 cursor-pointer hover:bg-gray-100">
-              <input
-                type="checkbox"
-                checked={skipPayment}
-                onChange={(e) => setSkipPayment(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm text-gray-700">
-                <span className="font-medium">I&apos;ll add payment later.</span>{' '}
-                Finish creating my account now — I&apos;ll save my card from my dashboard before enrolling a student.
-              </span>
-            </label>
-
             <div className="flex gap-3">
               <button type="button" onClick={() => { setError(''); setStep(2); }} className={btnSecondary}>← Back</button>
               <button type="submit" disabled={loading} className={btnPrimary}>
-                {loading
-                  ? 'Creating account…'
-                  : skipPayment
-                    ? 'Create account'
-                    : 'Next: Save Card →'}
+                {loading ? 'Creating account…' : 'Next: Save Card →'}
               </button>
             </div>
           </form>
         )}
 
-        {/* ─ Step 4: Stripe payment setup ────────────────────────────────────── */}
-        {step === 4 && clientSecret && stripePromise ? (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-            <PaymentSetupStep
-              onSuccess={handlePaymentSaved}
-              onBack={() => { setError(''); setStep(3); }}
-              onSkip={() => { window.location.href = '/members'; }}
-            />
-          </Elements>
-        ) : step === 4 && (
-          <p className="text-sm text-red-600">
-            Stripe is not configured. Please add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
-          </p>
+        {/* ─ Step 4: Stripe payment setup + finalize enrollment ──────────────── */}
+        {step === 4 && (
+          finalizing ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm font-medium text-gray-700">{finalizeMsg || 'Finalizing your enrollment…'}</p>
+              <p className="text-xs text-gray-400">Please don&apos;t close this window.</p>
+            </div>
+          ) : finalizeErrors.length > 0 ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-900 mb-1">Your account and card are saved.</p>
+                <p className="text-sm text-amber-800">
+                  We couldn&apos;t finish enrolling the following. You can complete these any time from your dashboard:
+                </p>
+                <ul className="mt-2 list-disc pl-5 text-sm text-amber-800">
+                  {finalizeErrors.map((msg, i) => <li key={i}>{msg}</li>)}
+                </ul>
+              </div>
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/members'; }}
+                className={btnPrimary}
+              >
+                Continue to dashboard →
+              </button>
+            </div>
+          ) : clientSecret && stripePromise ? (
+            <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+              <PaymentSetupStep
+                onSuccess={handlePaymentSaved}
+                onBack={() => { setError(''); setStep(3); }}
+              />
+            </Elements>
+          ) : (
+            <p className="text-sm text-red-600">
+              Stripe is not configured. Please add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
+            </p>
+          )
         )}
 
         <p className="mt-5 text-center text-sm text-gray-500">
@@ -570,7 +689,6 @@ function KidCard({
   onView,
   onEnroll,
   onEnrollWithPlan,
-  onRequestPlan,
   onPayInstallment,
   onPayRemaining,
   onAddCard,
@@ -583,9 +701,8 @@ function KidCard({
   hasPaymentMethod: boolean;
   paymentPlanRequest?: PaymentPlanRequest | null;
   onView: () => void;
-  onEnroll: (idx: number) => void;
+  onEnroll: (idx: number, autoPay: boolean) => void;
   onEnrollWithPlan: (idx: number) => void;
-  onRequestPlan: (idx: number) => void;
   onPayInstallment: (idx: number, requestId: string) => void;
   onPayRemaining: (idx: number, requestId: string) => void;
   onAddCard: () => void;
@@ -707,25 +824,32 @@ function KidCard({
           <p className="text-xs text-gray-500 truncate">{program.name} · {formatPrice(program.pricePerYear, program.oneTimeFee, program.durationYears)}</p>
         )}
 
-        {/* Enroll / Renew button */}
-        {(status === 'pending' || status === 'inactive') && hasPaymentMethod && program && (
-          <button
-            onClick={() => onEnroll(kidIndex)}
-            disabled={busy}
-            className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {busy ? 'Processing…' : status === 'inactive' ? 'Renew' : 'Enroll Now'}
-          </button>
-        )}
-
-        {/* Payment plan section */}
-        {(status === 'pending' || status === 'inactive') && program && !paymentPlanRequest && (
-          <button
-            onClick={() => onRequestPlan(kidIndex)}
-            className="block w-full text-center rounded-lg border border-indigo-300 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
-          >
-            Request Payment Plan
-          </button>
+        {/* Enroll options — no plan yet: choose pay-in-full or 12 monthly payments.
+            Monthly is hidden for one-time-fee programs (e.g. the multi-year Black
+            Belt program), which aren't eligible for a monthly plan. */}
+        {(status === 'pending' || status === 'inactive') && hasPaymentMethod && program && !paymentPlanRequest && (
+          <>
+            <button
+              onClick={() => onEnroll(kidIndex, false)}
+              disabled={busy}
+              className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy
+                ? 'Processing…'
+                : `${status === 'inactive' ? 'Renew' : 'Enroll'} — Pay in Full (${formatPrice(program.pricePerYear, true)})`}
+            </button>
+            {!program.oneTimeFee && (
+              <button
+                onClick={() => onEnroll(kidIndex, true)}
+                disabled={busy}
+                className="block w-full text-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {busy
+                  ? 'Processing…'
+                  : `Monthly Payments — ${formatPrice(Math.round(program.pricePerYear / 12), true)}/mo × 12`}
+              </button>
+            )}
+          </>
         )}
         {paymentPlanRequest?.status === 'pending' && (
           <p className="text-xs text-amber-600 text-center bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
@@ -937,12 +1061,6 @@ function FamilyDashboard({
   const [addingKid, setAddingKid] = useState(false);
   const [addKidError, setAddKidError] = useState('');
 
-  // Payment plan request modal
-  const [planRequestKidIndex, setPlanRequestKidIndex] = useState<number | null>(null);
-  const [planInstallments, setPlanInstallments] = useState<3 | 6 | 12>(3);
-  const [requestingPlan, setRequestingPlan] = useState(false);
-  const [planRequestError, setPlanRequestError] = useState('');
-
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddKidError('');
@@ -982,14 +1100,14 @@ function FamilyDashboard({
     }
   };
 
-  const handleEnroll = async (kidIndex: number) => {
+  const handleEnroll = async (kidIndex: number, autoPay: boolean) => {
     setEnrolling(kidIndex);
     setEnrollError('');
     try {
       const res = await fetch('/api/stripe/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kidIndex }),
+        body: JSON.stringify({ kidIndex, autoPay }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1002,6 +1120,10 @@ function FamilyDashboard({
           programName: data.programName,
           amount: data.amount,
           oneTimeFee: data.oneTimeFee,
+          // autoPay returns installments — surface the monthly-plan summary in the modal.
+          ...(data.installments
+            ? { paymentPlan: { installments: data.installments, installmentAmount: data.amount } }
+            : {}),
           savedCard: data.savedCard ?? null,
         });
       }
@@ -1038,30 +1160,6 @@ function FamilyDashboard({
       setEnrollError('Something went wrong. Please try again.');
     }
     setEnrolling(null);
-  };
-
-  const handleRequestPlan = async () => {
-    if (planRequestKidIndex === null) return;
-    setRequestingPlan(true);
-    setPlanRequestError('');
-    try {
-      const res = await fetch('/api/profile/payment-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kidIndex: planRequestKidIndex, installments: planInstallments }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPlanRequestError(data.error ?? 'Failed to submit request.');
-        return;
-      }
-      onPaymentPlanRequestsUpdated([...paymentPlanRequests, data.request]);
-      setPlanRequestKidIndex(null);
-    } catch {
-      setPlanRequestError('Something went wrong. Please try again.');
-    } finally {
-      setRequestingPlan(false);
-    }
   };
 
   const handleEnrollSuccess = async (paymentIntentId: string) => {
@@ -1207,8 +1305,8 @@ function FamilyDashboard({
 
         {/* ── Add Card Modal ────────────────────────────────────────────── */}
         {addCardOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto my-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-900">Add a payment method</h2>
                 <button type="button" onClick={() => setAddCardOpen(false)}>
@@ -1226,8 +1324,8 @@ function FamilyDashboard({
 
         {/* ── Add Student Modal ─────────────────────────────────────────── */}
         {addStudentOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
+            <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto my-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-900">Add Student</h2>
                 <button type="button" onClick={() => setAddStudentOpen(false)}>
@@ -1283,57 +1381,6 @@ function FamilyDashboard({
           </div>
         )}
 
-        {/* ── Payment Plan Request Modal ─────────────────────────────────── */}
-        {planRequestKidIndex !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900">Request Payment Plan</h2>
-                <button type="button" onClick={() => setPlanRequestKidIndex(null)}>
-                  <XMarkIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Split the enrollment fee into equal monthly installments. Your request will be reviewed before checkout.
-              </p>
-              <div className="flex gap-3 mb-5">
-                {([3, 6, 12] as const).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPlanInstallments(n)}
-                    className={`flex-1 rounded-lg border py-3 text-sm font-semibold transition-colors ${
-                      planInstallments === n
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {n} payments
-                  </button>
-                ))}
-              </div>
-              {planRequestError && <p className="text-sm text-red-600 mb-3">{planRequestError}</p>}
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPlanRequestKidIndex(null)}
-                  className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={requestingPlan}
-                  onClick={handleRequestPlan}
-                  className="flex-1 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-                >
-                  {requestingPlan ? 'Submitting…' : 'Submit Request'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tabs: dashboard defaults to the family view; the Pro Shop lives
             behind its own tab so parents see their kids first. */}
         <div className="border-b border-gray-200 mb-6">
@@ -1374,7 +1421,6 @@ function FamilyDashboard({
                   onView={() => onSelectKid(kid)}
                   onEnroll={handleEnroll}
                   onEnrollWithPlan={handleEnrollWithPlan}
-                  onRequestPlan={(idx) => { setPlanRequestKidIndex(idx); setPlanInstallments(3); setPlanRequestError(''); }}
                   onPayInstallment={handlePayInstallment}
                   onPayRemaining={(idx, requestId) => handlePayInstallment(idx, requestId, true)}
                   onAddCard={() => setAddCardOpen(true)}

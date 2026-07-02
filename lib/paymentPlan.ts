@@ -11,8 +11,9 @@ import { getProgramById } from './programs';
  */
 
 /** Number of missed payments at which the admin UI flags a plan as eligible
- *  for revocation. Revocation itself is always a manual admin action. */
-export const MISSED_PAYMENT_THRESHOLD = 2;
+ *  for revocation and the parent is emailed that the full balance is now due.
+ *  Revocation itself is always a manual admin action. */
+export const MISSED_PAYMENT_THRESHOLD = 3;
 
 /** Whole calendar-ish months elapsed since the plan was approved. */
 export function monthsElapsed(plan: PaymentPlanRequest, now: Date = new Date()): number {

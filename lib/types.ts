@@ -19,6 +19,10 @@ export interface PaymentPlanRequest {
   reviewedAt?: string;  // ISO — also used as the revoke timestamp
   revokedReason?: string;  // admin note captured when a plan is revoked
   chargeHistory?: InstallmentRecord[];
+  // ISO timestamp of the one-time "balance is now due" email sent once a plan
+  // reaches MISSED_PAYMENT_THRESHOLD missed payments. Presence prevents the
+  // daily cron from re-sending it every run.
+  balanceDueNotifiedAt?: string;
 }
 
 export interface Purchase {

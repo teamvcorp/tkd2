@@ -83,11 +83,11 @@ function EnrollForm({
         {paymentPlan ? (
           <>
             <p className="text-xs text-indigo-600 font-medium">
-              Payment Plan — installment 1 of {paymentPlan.installments}
+              Monthly Plan — payment 1 of {paymentPlan.installments}
             </p>
-            <p className="text-xl font-bold text-indigo-900">{formatPrice(amount, oneTimeFee)}</p>
+            <p className="text-xl font-bold text-indigo-900">{formatPrice(amount, true)}</p>
             <p className="text-xs text-gray-500">
-              {formatPrice(paymentPlan.installmentAmount)} × {paymentPlan.installments} installments
+              {formatPrice(paymentPlan.installmentAmount, true)}/mo × {paymentPlan.installments} payments
             </p>
           </>
         ) : (
@@ -95,13 +95,21 @@ function EnrollForm({
         )}
       </div>
 
-      <p className="text-xs text-gray-500">
-        {paymentPlan
-          ? `You will be charged ${formatPrice(amount, oneTimeFee)} now. Remaining installments are billed per your plan.`
-          : savedCard
-            ? 'Your saved card on file will be charged when you confirm below.'
+      {paymentPlan ? (
+        <p className="text-xs text-gray-500">
+          You&apos;ll be charged <span className="font-semibold">{formatPrice(amount, oneTimeFee)}</span> now
+          (payment 1 of {paymentPlan.installments}). The remaining {paymentPlan.installments - 1} monthly
+          payments of {formatPrice(paymentPlan.installmentAmount, true)} are billed each month.
+          If <span className="font-semibold">3 monthly payments are missed or late, the entire remaining
+          balance becomes due.</span>
+        </p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          {savedCard
+            ? 'Your saved card on file will be charged in full when you confirm below.'
             : 'Pay in full or choose a pay-over-time option such as Klarna or Afterpay where available. You will only be charged after confirming below.'}
-      </p>
+        </p>
+      )}
 
       {savedCard ? (
         <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
@@ -153,8 +161,8 @@ export default function EnrollConfirmModal({
   onClose,
 }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto my-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">Confirm Enrollment</h2>
           <button type="button" onClick={onClose} aria-label="Close">

@@ -61,6 +61,7 @@ const REMINDER_SUBJECTS: Record<string, string> = {
   'payment-plan-consecutive': 'Keep Your Payment Plan on Track – Taekwondo of Storm Lake',
   'payment-plan-revoked': 'Important: Your Payment Plan Has Been Cancelled – Taekwondo of Storm Lake',
   'payment-plan-created': 'Your Payment Plan Is Set Up – Taekwondo of Storm Lake',
+  'payment-plan-balance-due': 'Action Required: Your Full Balance Is Now Due – Taekwondo of Storm Lake',
 };
 
 /** Extra, type-specific values a reminder body may need. Kept as one options
@@ -113,9 +114,16 @@ const REMINDER_BODIES: Record<string, (parentName: string, extras?: ReminderBody
     <p>Dear ${parentName},</p>
     <p>Good news — a payment plan has been set up for your family with <strong>Taekwondo of Storm Lake</strong>.</p>
     ${extras?.planText ? `<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-weight:600;color:#166534">${extras.planText}</p>` : ''}
-    <p>Installments are paid <strong>monthly</strong> — one payment each month until the plan is complete. To keep your plan in good standing, please make each payment on schedule.</p>
+    <p>Installments are paid <strong>monthly</strong> — one payment each month until the plan is complete. To keep your plan in good standing, please make each payment on schedule. Please note: if <strong>3 monthly payments are missed or late, the entire remaining balance becomes due</strong>.</p>
     <p>You can review your plan and make payments any time by logging in to your account. If anything looks off or you'd like to discuss the arrangement, just reply to this email — we're happy to help.</p>
     <p>Welcome aboard, and we look forward to seeing you on the mat!</p>
+  `,
+  'payment-plan-balance-due': (parentName, extras) => `
+    <p>Dear ${parentName},</p>
+    <p>Our records show that <strong>3 or more scheduled monthly payments</strong> on your payment plan with <strong>Taekwondo of Storm Lake</strong> have been missed or are past due.</p>
+    <p>As outlined when the plan was set up, this means the <strong>entire remaining balance${extras?.balanceText ? ` of <strong>${extras.balanceText}</strong>` : ''} is now due in full</strong>.</p>
+    <p>Please log in to your account to settle the balance, or reply to this email so we can work out an arrangement and keep your student training without interruption.</p>
+    <p>Thank you for your prompt attention to this matter.</p>
   `,
 };
 
@@ -148,6 +156,7 @@ export async function sendReminderEmail({ parentName, userEmail, reminderType, t
     'payment-plan-consecutive': 'Consecutive Payment Reminder',
     'payment-plan-revoked': 'Payment Plan Cancelled',
     'payment-plan-created': 'Payment Plan Set Up',
+    'payment-plan-balance-due': 'Full Balance Due',
   }[reminderType] ?? reminderType;
 
   // Login URL: use NEXTAUTH_URL when set, else fall back to the production
