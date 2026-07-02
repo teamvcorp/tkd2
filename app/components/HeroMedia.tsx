@@ -44,7 +44,7 @@ export default function HeroMedia() {
   // Keep the selected index valid if the list changes.
   useEffect(() => { setSelected(0); }, [hero?.mode, items.length]);
 
-  const wrapperCls = 'relative mt-16 lg:mt-8 w-full lg:w-[1000px] lg:flex-none';
+  const wrapperCls = 'relative mt-16 lg:mt-0 w-full lg:w-[1000px] lg:flex-none';
 
   // ── Fallback: default cross-fading image slideshow ─────────────────────────
   if (!loaded || useFallback) {
