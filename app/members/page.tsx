@@ -1487,9 +1487,23 @@ export default function MembersPage() {
 
   useEffect(() => {
     if (!session) return;
+    // Don't load the dashboard profile while the sign-up wizard is running —
+    // the wizard signs the user in mid-flow (step 3) so its payment/enroll calls
+    // are authenticated, and it owns the screen until it navigates away itself.
+    if (authView === 'register') return;
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, authView]);
+
+  // The multi-step sign-up wizard must stay mounted for its entire duration,
+  // even after signIn() makes `session` truthy at step 3. Rendering it before
+  // the loading/session/dashboard branches prevents the session change from
+  // unmounting it (which previously bounced users to the dashboard before the
+  // card step could load / the first payment could process). The wizard ends
+  // with a full-page navigation to /members, which then shows the dashboard.
+  if (authView === 'register') {
+    return <RegisterForm onSwitch={() => setAuthView('login')} />;
+  }
 
   if (status === 'loading' || profileLoading) {
     return (
@@ -1500,9 +1514,6 @@ export default function MembersPage() {
   }
 
   if (!session) {
-    if (authView === 'register') {
-      return <RegisterForm onSwitch={() => setAuthView('login')} />;
-    }
     if (authView === 'forgot') {
       return <ForgotPasswordForm onBack={() => setAuthView('login')} />;
     }
