@@ -26,6 +26,7 @@ export async function PATCH(
   // Associate an existing (e.g. manually-created) Stripe customer with this
   // user so their card/payments live under the right customer. Validate the
   // id against Stripe and guard against linking one already used by someone else.
+  let linkedPaymentMethod = false;
   if (body.stripeCustomerId !== undefined) {
     const cid = String(body.stripeCustomerId).trim();
     if (cid) {
@@ -44,10 +45,32 @@ export async function PATCH(
         if ((customer as { deleted?: boolean }).deleted) {
           return NextResponse.json({ error: 'That Stripe customer has been deleted.' }, { status: 400 });
         }
+        updates.stripeCustomerId = cid;
+
+        // Pull the customer's saved card so the app recognizes it — "has a card"
+        // is derived from stripePaymentMethodId, so linking the customer alone
+        // wouldn't surface the stored card. Prefer the customer's default PM,
+        // else the most recent card, and set it as the default for off-session
+        // installment charges.
+        const inv = (customer as { invoice_settings?: { default_payment_method?: string | null } }).invoice_settings;
+        let pmId = typeof inv?.default_payment_method === 'string' ? inv.default_payment_method : undefined;
+        if (!pmId) {
+          const pms = await stripe.paymentMethods.list({ customer: cid, type: 'card', limit: 1 });
+          pmId = pms.data[0]?.id;
+        }
+        if (pmId) {
+          updates.stripePaymentMethodId = pmId;
+          updates.registrationStatus = 'complete';
+          linkedPaymentMethod = true;
+          try {
+            await stripe.customers.update(cid, { invoice_settings: { default_payment_method: pmId } });
+          } catch (err) {
+            console.error('link stripe: failed to set default payment method', err);
+          }
+        }
       } catch {
         return NextResponse.json({ error: 'No Stripe customer found with that ID.' }, { status: 400 });
       }
-      updates.stripeCustomerId = cid;
     }
   }
 
@@ -69,7 +92,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, linkedPaymentMethod });
 }
 
 /**

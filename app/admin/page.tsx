@@ -853,9 +853,14 @@ export default function AdminPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, stripeCustomerId: cid } : u));
+        setUsers((prev) => prev.map((u) => u.id === userId
+          ? { ...u, stripeCustomerId: cid, hasPaymentMethod: data.linkedPaymentMethod ? true : u.hasPaymentMethod }
+          : u));
         setStripeEditUserId(null);
         setStripeDraft('');
+        if (!data.linkedPaymentMethod) {
+          setError('Linked, but that Stripe customer has no saved card yet — the parent can add one from their dashboard.');
+        }
       } else {
         setError(data.error ?? 'Failed to link Stripe customer.');
       }
