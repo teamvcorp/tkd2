@@ -51,14 +51,26 @@ export async function POST() {
     if (!user) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
-    if (!user.stripeCustomerId) {
-      return NextResponse.json({ error: 'No Stripe customer on file.' }, { status: 400 });
+
+    // Auto-provision a Stripe customer if the account doesn't have one yet
+    // (e.g. a student added without payment, or a registration whose Stripe
+    // leg failed). Without this, "Add payment method" would dead-end.
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.username,
+        name: user.parentName,
+        phone: user.phone || undefined,
+        metadata: { username: user.username, userId: user.id },
+      });
+      customerId = customer.id;
+      await updateUser({ ...user, stripeCustomerId: customerId });
     }
 
     // Card-only + off_session so the saved method is guaranteed reusable for
     // automatic monthly installments charged later off-session.
     const setupIntent = await stripe.setupIntents.create({
-      customer: user.stripeCustomerId,
+      customer: customerId,
       payment_method_types: ['card'],
       usage: 'off_session',
       metadata: { username },

@@ -22,6 +22,35 @@ export async function PATCH(
   if (body.parentName !== undefined) updates.parentName = String(body.parentName).trim();
   if (body.parentAge !== undefined) updates.parentAge = Number(body.parentAge);
   if (body.archived !== undefined) updates.archived = Boolean(body.archived);
+
+  // Associate an existing (e.g. manually-created) Stripe customer with this
+  // user so their card/payments live under the right customer. Validate the
+  // id against Stripe and guard against linking one already used by someone else.
+  if (body.stripeCustomerId !== undefined) {
+    const cid = String(body.stripeCustomerId).trim();
+    if (cid) {
+      const clash = await col().findOne(
+        { stripeCustomerId: cid, id: { $ne: id } },
+        { projection: { _id: 0, id: 1 } },
+      );
+      if (clash) {
+        return NextResponse.json(
+          { error: 'That Stripe customer is already linked to another account.' },
+          { status: 409 },
+        );
+      }
+      try {
+        const customer = await stripe.customers.retrieve(cid);
+        if ((customer as { deleted?: boolean }).deleted) {
+          return NextResponse.json({ error: 'That Stripe customer has been deleted.' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'No Stripe customer found with that ID.' }, { status: 400 });
+      }
+      updates.stripeCustomerId = cid;
+    }
+  }
+
   if (body.kids !== undefined) {
     updates.kids = (body.kids as Kid[]).map((k) => ({
       name: String(k.name ?? '').trim(),

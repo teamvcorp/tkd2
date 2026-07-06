@@ -874,9 +874,17 @@ function KidCard({
           </button>
         )}
         {paymentPlanRequest?.status === 'approved' && !hasPaymentMethod && (
-          <p className="text-xs text-emerald-700 text-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
-            Plan approved — add a payment method to enroll
-          </p>
+          <>
+            <p className="text-xs text-emerald-700 text-center bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
+              Plan approved — add a payment method to enroll
+            </p>
+            <button
+              onClick={onAddCard}
+              className="block w-full text-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+            >
+              Add card to enroll
+            </button>
+          </>
         )}
 
         {/* Pay next installment (and, when more than one is left, pay it all off)

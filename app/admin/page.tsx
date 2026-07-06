@@ -836,6 +836,36 @@ export default function AdminPage() {
     }
   };
 
+  // ── Link an existing Stripe customer to a user ─────────────────────────────
+  const [stripeEditUserId, setStripeEditUserId] = useState<string | null>(null);
+  const [stripeDraft, setStripeDraft] = useState('');
+  const [stripeSaving, setStripeSaving] = useState(false);
+
+  const handleLinkStripe = async (userId: string) => {
+    const cid = stripeDraft.trim();
+    if (!cid) { setStripeEditUserId(null); return; }
+    setStripeSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeCustomerId: cid }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, stripeCustomerId: cid } : u));
+        setStripeEditUserId(null);
+        setStripeDraft('');
+      } else {
+        setError(data.error ?? 'Failed to link Stripe customer.');
+      }
+    } catch {
+      setError('Failed to link Stripe customer.');
+    } finally {
+      setStripeSaving(false);
+    }
+  };
+
   const startEditingKids = (user: AdminUser) => {
     setEditingKids((prev) => ({
       ...prev,
@@ -1467,6 +1497,55 @@ export default function AdminPage() {
                                 <div><span className="text-gray-500">Email:</span> <span className="text-gray-900">{user.username}</span></div>
                                 <div><span className="text-gray-500">Phone:</span> <span className="text-gray-900">{user.phone || '—'}</span></div>
                               </div>
+                            )}
+                          </div>
+
+                          {/* Stripe customer link */}
+                          <div className="mb-5 pb-4 border-b border-gray-100">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stripe Customer</span>
+                              {stripeEditUserId !== user.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setStripeEditUserId(user.id); setStripeDraft(user.stripeCustomerId ?? ''); }}
+                                  className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                  {user.stripeCustomerId ? 'Change' : 'Link existing'}
+                                </button>
+                              )}
+                            </div>
+                            {stripeEditUserId === user.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="cus_… (from Stripe dashboard)"
+                                  value={stripeDraft}
+                                  onChange={(e) => setStripeDraft(e.target.value)}
+                                  className="flex-1 rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={stripeSaving}
+                                  onClick={() => handleLinkStripe(user.id)}
+                                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                  {stripeSaving ? 'Linking…' : 'Link'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setStripeEditUserId(null); setStripeDraft(''); }}
+                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-sm">
+                                <span className="text-gray-500">ID:</span>{' '}
+                                {user.stripeCustomerId
+                                  ? <span className="font-mono text-gray-900">{user.stripeCustomerId}</span>
+                                  : <span className="text-gray-400">Not linked</span>}
+                              </p>
                             )}
                           </div>
 
